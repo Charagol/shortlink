@@ -2,9 +2,11 @@ package com.charagol.shortlink.admin.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.charagol.shortlink.admin.common.convention.result.Result;
+import com.charagol.shortlink.admin.common.convention.result.Results;
 import com.charagol.shortlink.admin.remote.dto.ShortLinkRemoteService;
 import com.charagol.shortlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import com.charagol.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
+import com.charagol.shortlink.admin.remote.dto.req.ShortLinkUpdateReqDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,16 @@ public class ShortLinkController {
     @PostMapping("/api/short-link/admin/v1/create")
     public Result<ShortLinkCreateRespDTO> createShortLink(@RequestBody ShortLinkCreateReqDTO requestParam) {
         return shortLinkRemoteService.createShortLink(requestParam);
+    }
+
+
+    /**
+     * 修改短链接
+     */
+    @PostMapping("/api/short-link/admin/v1/update")
+    public Result<Void> updateShortLink(@RequestBody ShortLinkUpdateReqDTO requestParam) {
+        shortLinkRemoteService.updateShortLink(requestParam);
+        return Results.success();
     }
 
 

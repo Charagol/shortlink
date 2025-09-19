@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.charagol.shortlink.admin.common.convention.result.Result;
 import com.charagol.shortlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import com.charagol.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
+import com.charagol.shortlink.admin.remote.dto.req.ShortLinkUpdateReqDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
@@ -31,6 +32,15 @@ public interface ShortLinkRemoteService {
         return JSON.parseObject(resultBodyStr, new TypeReference<>() {
         });
     }
+
+    /**
+     * 修改短链接
+     * @param requestParam 短链接修改请求参数
+     */
+    default void updateShortLink(ShortLinkUpdateReqDTO requestParam){
+        HttpUtil.post("http://127.0.0.1:8081/api/short-link/v1/update", JSON.toJSONString(requestParam));
+    }
+
 
     /**
      * 分页查询短链接
@@ -62,4 +72,6 @@ public interface ShortLinkRemoteService {
         return JSON.parseObject(resultPageStr, new TypeReference<>() {
         });
     }
+
+
 }
