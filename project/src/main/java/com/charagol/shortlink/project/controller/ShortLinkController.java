@@ -28,8 +28,6 @@ import com.charagol.shortlink.project.dto.resp.ShortLinkCreateRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.ShortLinkService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,12 +42,6 @@ import java.util.List;
 public class ShortLinkController {
 
     private final ShortLinkService shortLinkService;
-
-    @GetMapping("/{short-uri}")
-    public void restoreUrl(@PathVariable("short-uri") String shortUri, HttpServletRequest request, HttpServletResponse response) {
-        return;
-    }
-
 
     /**
      * 创建短链接

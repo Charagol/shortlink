@@ -26,8 +26,6 @@ import com.charagol.shortlink.project.dto.req.ShortLinkUpdateReqDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkCreateRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.List;
 
@@ -69,11 +67,4 @@ public interface ShortLinkService extends IService<ShortLinkDO> {
     List<ShortLinkGroupCountQueryRespDTO> listGroupShortLinkCount(List<String> requestParam);
 
 
-    /**
-     * 短链接跳转
-     * @param shortUri 短链接后缀
-     * @param request HTTP请求
-     * @param response HTTP响应
-     */
-    void restoreUrl(String shortUri, HttpServletRequest request, HttpServletResponse response);
 }
