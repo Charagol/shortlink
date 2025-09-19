@@ -20,6 +20,8 @@ import com.charagol.shortlink.project.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.ShortLinkService;
 import com.charagol.shortlink.project.toolkit.HashUtil;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
@@ -37,7 +39,6 @@ import java.util.Objects;
 public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLinkDO> implements ShortLinkService {
 
     private final RBloomFilter<String> shortUriCreateCachePenetrationBloomFilter;
-
     /**
      * 创建短链接
      * @param requestParam 创建短链接请求参数
@@ -80,8 +81,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 如果查不到，则抛出原异常
             throw ex;
         }
-        // 6. 将生成的后缀加入布隆过滤器，避免频繁重复生成
-        shortUriCreateCachePenetrationBloomFilter.add(shortLinkSuffix);
+        // 6. 将完整链接加入布隆过滤器，避免频繁重复生成（不用后缀：一个后缀可能在多个域名中使用）
+        shortUriCreateCachePenetrationBloomFilter.add(fullShortUrl);
 
         // 7. 返回 DTO：从ShortLinkDO中取值，组装成返回值
         return ShortLinkCreateRespDTO.builder()
@@ -133,9 +134,6 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             baseMapper.delete(updateWrapper);
             shortLinkDO.setGid(requestParam.getGid());
             baseMapper.insert(shortLinkDO);
-
-
-
         }
         // 传递的分组与原来的分组不匹配，则分组发生更改，需要先删除
     }
@@ -172,6 +170,16 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         List<Map<String, Object>> shortLinkDOList = baseMapper.selectMaps(queryWrapper);
         return BeanUtil.copyToList(shortLinkDOList, ShortLinkGroupCountQueryRespDTO.class);
     }
+
+
+    @Override
+    public void restoreUrl(String shortUri, HttpServletRequest request, HttpServletResponse response) {
+        String serverName = request.getServerName();
+        String fullShortUrl = serverName + "/" + shortUri;
+        shortUriCreateCachePenetrationBloomFilter.contains(fullShortUrl);
+    }
+
+
 
     private String generateSuffix(ShortLinkCreateReqDTO requestParam) {
         int customGenerateCount = 0;
