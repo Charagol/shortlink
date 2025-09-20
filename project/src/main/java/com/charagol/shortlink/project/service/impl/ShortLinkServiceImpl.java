@@ -11,6 +11,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.charagol.shortlink.project.common.convention.exception.ServiceException;
 import com.charagol.shortlink.project.common.enums.ValiDateTypeEnum;
 import com.charagol.shortlink.project.dao.entity.ShortLinkDO;
+import com.charagol.shortlink.project.dao.entity.ShortLinkGotoDO;
+import com.charagol.shortlink.project.dao.mapper.ShortLinkGotoMapper;
 import com.charagol.shortlink.project.dao.mapper.ShortLinkMapper;
 import com.charagol.shortlink.project.dto.req.ShortLinkCreateReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkPageReqDTO;
@@ -20,7 +22,10 @@ import com.charagol.shortlink.project.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.ShortLinkService;
 import com.charagol.shortlink.project.toolkit.HashUtil;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import org.springframework.dao.DuplicateKeyException;
@@ -37,11 +42,13 @@ import java.util.Objects;
 public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLinkDO> implements ShortLinkService {
 
     private final RBloomFilter<String> shortUriCreateCachePenetrationBloomFilter;
+    private final ShortLinkGotoMapper shortLinkGotoMapper;
+
 
     /**
      * 创建短链接
      * @param requestParam 创建短链接请求参数
-     * @return
+     * @return 短链接创建信息
      */
     @Override
     public ShortLinkCreateRespDTO createShortLink(ShortLinkCreateReqDTO requestParam) {
@@ -65,9 +72,15 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .enableStatus(0)
                 .fullShortUrl(fullShortUrl)
                 .build();
+        ShortLinkGotoDO linkGotoDO = ShortLinkGotoDO.builder()
+                .fullShortUrl(fullShortUrl)
+                .gid(requestParam.getGid())
+                .build();
         try {
             // 4. 插入数据库（乐观）
             baseMapper.insert(shortLinkDO);
+            // 4.5 在新建短链接时，插入短链接跳转表
+            shortLinkGotoMapper.insert(linkGotoDO);
         } catch (DuplicateKeyException ex) {
             // 5. 遇到主键/唯一键冲突时再查一次，防止重复插入
             LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
@@ -80,8 +93,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 如果查不到，则抛出原异常
             throw ex;
         }
-        // 6. 将生成的后缀加入布隆过滤器，避免频繁重复生成
-        shortUriCreateCachePenetrationBloomFilter.add(shortLinkSuffix);
+        // 6. 将完整链接加入布隆过滤器，避免频繁重复生成（不用后缀：一个后缀可能在多个域名中使用）
+        shortUriCreateCachePenetrationBloomFilter.add(fullShortUrl);
 
         // 7. 返回 DTO：从ShortLinkDO中取值，组装成返回值
         return ShortLinkCreateRespDTO.builder()
@@ -91,6 +104,10 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .build();
     }
 
+    /**
+     * 修改短链接
+     * @param requestParam 请求参数
+     */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void updateShortLink(ShortLinkUpdateReqDTO requestParam) {
@@ -133,9 +150,6 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             baseMapper.delete(updateWrapper);
             shortLinkDO.setGid(requestParam.getGid());
             baseMapper.insert(shortLinkDO);
-
-
-
         }
         // 传递的分组与原来的分组不匹配，则分组发生更改，需要先删除
     }
@@ -172,6 +186,60 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         List<Map<String, Object>> shortLinkDOList = baseMapper.selectMaps(queryWrapper);
         return BeanUtil.copyToList(shortLinkDOList, ShortLinkGroupCountQueryRespDTO.class);
     }
+
+
+    /**
+     * 重定向短链接
+     * @param shortUri 短链接后缀
+     * @param request HTTP请求
+     * @param response HTTP响应
+     */
+    @SneakyThrows
+    @Override
+    public void restoreUrl(String shortUri, HttpServletRequest request, HttpServletResponse response) {
+        /**
+         * 因为前端请求过来是短链接，所以需要根据短链接找到原始链接，然后重定向到原始链接
+         * 但是t_link是根据gid来分片的，所以需要先根据短链接找到gid，然后再根据gid和fullShortUrl找到原始链接
+         * 新建一个路由表t_link_goto(使用full_short_url分片)，用于存储短链接和gid的映射关系，从而再检查到gid
+         * 再求查询t_link中的原始链接
+         */
+        String serverName = request.getServerName();
+        // 自由决定要不要拼接域名协议。创建时带了协议，现在就必须一致
+        //  -- 如果设置短链接"domain": "http://nurl.ink"则拼接
+        //  -- 如果设置短链接"domain": "nurl.ink"则不拼接
+        String fullShortUrl = request.getScheme()+ "://" + serverName + "/" + shortUri;
+        // shortUriCreateCachePenetrationBloomFilter.contains(fullShortUrl);
+
+        // 用户传入的只有fullShortUrl，需要转而获取Gid——路由表
+        // 1. 先根据短链接查询gid
+        LambdaQueryWrapper<ShortLinkGotoDO> linkGotoQueryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
+                .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
+        ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(linkGotoQueryWrapper);
+
+        if (shortLinkGotoDO == null) {
+            // 严谨来说，此处需要进行封控
+            // NEW! 如果涉及到需要查询数据库的操作，就得考虑防止缓存穿透：先问布隆过滤器，再查数据库
+            return;
+        }
+
+        // 2. 根据gid和fullShortUrl查询原始链接
+        LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
+                .eq(ShortLinkDO::getGid, shortLinkGotoDO.getGid())
+                .eq(ShortLinkDO::getFullShortUrl, fullShortUrl)
+                .eq(ShortLinkDO::getDelFlag, 0)
+                .eq(ShortLinkDO::getEnableStatus, 0);
+        ShortLinkDO shortLinkDO = baseMapper.selectOne(queryWrapper);
+
+
+        // 3. 重定向跳转
+            // Optional.ofNullable(shortLinkDO).ifPresent(link -> response.sendRedirect(link.getFullShortUrl()));
+            // 使用Optional会由于Consumer接口不可以抛出异常，从而变繁琐。
+        if (shortLinkDO != null) {
+            response.sendRedirect(shortLinkDO.getOriginUrl());
+        }
+    }
+
+
 
     private String generateSuffix(ShortLinkCreateReqDTO requestParam) {
         int customGenerateCount = 0;
