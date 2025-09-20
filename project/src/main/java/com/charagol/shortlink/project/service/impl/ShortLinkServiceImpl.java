@@ -39,9 +39,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
-import static com.charagol.shortlink.project.common.constant.RedisKeyConstant.GOTO_SHORT_LINK_KEY;
-import static com.charagol.shortlink.project.common.constant.RedisKeyConstant.LOCK_GOTO_SHORT_LINK_KEY;
+import static com.charagol.shortlink.project.common.constant.RedisKeyConstant.*;
 
 @Slf4j
 @Service
@@ -206,39 +206,45 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     @SneakyThrows
     @Override
     public void restoreUrl(String shortUri, HttpServletRequest request, HttpServletResponse response) {
-        /**
-         * 因为前端请求过来是短链接，所以需要根据短链接找到原始链接，然后重定向到原始链接
-         * 但是t_link是根据gid来分片的，所以需要先根据短链接找到gid，然后再根据gid和fullShortUrl找到原始链接
-         * 新建一个路由表t_link_goto(使用full_short_url分片)，用于存储短链接和gid的映射关系，从而再检查到gid
-         * 再求查询t_link中的原始链接
-         */
         String serverName = request.getServerName();
-        // 自由决定要不要拼接域名协议。创建时带了协议，现在就必须一致
-            //  -- 如果设置短链接"domain": "http://nurl.ink"则拼接
-            //  -- 如果设置短链接"domain": "nurl.ink"则不拼接
         String fullShortUrl = request.getScheme()+ "://" + serverName + "/" + shortUri;
+
+        // 第一次检查：尝试从 Redis 中获取原始链接
         String originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
         if (StrUtil.isNotBlank(originalLink)) {
             response.sendRedirect(originalLink);
             return;
         }
+        boolean contains = shortUriCreateCachePenetrationBloomFilter.contains(fullShortUrl);
+        if (!contains) {
+            return;
+        }
+        String gotoIsNullShortLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl));
+        if (StrUtil.isNotBlank(gotoIsNullShortLink)) {
+            response.sendRedirect(gotoIsNullShortLink);
+            return;
+        }
+
+        // 缓存未命中，准备查询数据库。
         RLock lock = redissonClient.getLock(String.format(LOCK_GOTO_SHORT_LINK_KEY, fullShortUrl));
         lock.lock();
         try {
+            // 第二次检查：获取锁之后，再次检查缓存
+            // 因为可能在等待锁的过程中，其他线程已经查询完数据库并回填了缓存
             originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
             if (StrUtil.isNotBlank(originalLink)) {
                 response.sendRedirect(originalLink);
                 return;
             }
-            // 1. 先根据短链接去路由表查询gid
+            // 开始查询数据库
             LambdaQueryWrapper<ShortLinkGotoDO> linkGotoQueryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
                     .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
             ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(linkGotoQueryWrapper);
             if (shortLinkGotoDO == null) {
+                stringRedisTemplate.opsForValue().set(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl),"-",30, TimeUnit.SECONDS);
                 // 严谨来说，此处需要进行封控
                 return;
             }
-            // 2. 根据gid和fullShortUrl查询原始链接
             LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
                     .eq(ShortLinkDO::getGid, shortLinkGotoDO.getGid())
                     .eq(ShortLinkDO::getFullShortUrl, fullShortUrl)
@@ -247,6 +253,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             ShortLinkDO shortLinkDO = baseMapper.selectOne(queryWrapper);
 
             if (shortLinkDO != null) {
+                // 查到数据后，写回 Redis，而后重定向
                 stringRedisTemplate.opsForValue().set(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl), shortLinkDO.getOriginUrl()); // 没有设置过期时间
                 response.sendRedirect(shortLinkDO.getOriginUrl());
             }
