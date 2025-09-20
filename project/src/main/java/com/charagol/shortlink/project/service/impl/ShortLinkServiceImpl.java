@@ -23,6 +23,7 @@ import com.charagol.shortlink.project.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.ShortLinkService;
 import com.charagol.shortlink.project.toolkit.HashUtil;
+import com.charagol.shortlink.project.toolkit.LinkUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -103,6 +104,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             throw ex;
         }
         // 6. 将完整链接加入布隆过滤器，避免频繁重复生成（不用后缀：一个后缀可能在多个域名中使用）
+        stringRedisTemplate.opsForValue().set(
+                fullShortUrl,
+                requestParam.getOriginUrl(),
+                LinkUtil.getLinkCacheValidTime(requestParam.getValidDate()),TimeUnit.MILLISECONDS
+        );
         shortUriCreateCachePenetrationBloomFilter.add(fullShortUrl);
 
         // 7. 返回 DTO：从ShortLinkDO中取值，组装成返回值
