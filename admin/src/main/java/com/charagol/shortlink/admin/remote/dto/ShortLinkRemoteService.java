@@ -7,6 +7,7 @@ import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.charagol.shortlink.admin.common.convention.result.Result;
 import com.charagol.shortlink.admin.dto.req.RecycleBinRecoverReqDTO;
+import com.charagol.shortlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.charagol.shortlink.admin.remote.dto.req.*;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;

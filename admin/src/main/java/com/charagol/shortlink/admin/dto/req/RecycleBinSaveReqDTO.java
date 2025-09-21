@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.charagol.shortlink.admin.remote.dto.req;
+package com.charagol.shortlink.admin.dto.req;
 
 import lombok.Data;
 

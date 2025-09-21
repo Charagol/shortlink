@@ -23,7 +23,7 @@ import com.charagol.shortlink.admin.common.convention.result.Results;
 import com.charagol.shortlink.admin.dto.req.RecycleBinRecoverReqDTO;
 import com.charagol.shortlink.admin.remote.dto.ShortLinkRemoteService;
 import com.charagol.shortlink.admin.remote.dto.req.RecycleBinPageReqDTO;
-import com.charagol.shortlink.admin.remote.dto.req.RecycleBinSaveReqDTO;
+import com.charagol.shortlink.admin.dto.req.RecycleBinSaveReqDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.admin.service.RecycleBinService;
 import lombok.RequiredArgsConstructor;
