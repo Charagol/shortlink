@@ -29,6 +29,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -37,6 +40,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +87,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .shortUri(shortLinkSuffix)
                 .enableStatus(0)
                 .fullShortUrl(fullShortUrl)
+                .favicon(getFavicon(requestParam.getOriginUrl()))
                 .build();
         ShortLinkGotoDO linkGotoDO = ShortLinkGotoDO.builder()
                 .fullShortUrl(fullShortUrl)
@@ -301,5 +307,62 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             customGenerateCount++;
         }
         return shortUri;
+    }
+
+    /**
+     * 获取网站的favicon图标链接
+     *
+     * @param url 网站的URL
+     * @return favicon图标的链接，如果不存在则返回null
+     */
+    @SneakyThrows
+    private String getFavicon(String url) {
+        // 以给定的URL
+        URL targetUrl = new URL(url);
+        // 打开连接
+        HttpURLConnection connection = (HttpURLConnection) targetUrl.openConnection();
+        // 禁止自动重定向
+        connection.setInstanceFollowRedirects(false);
+        // 设置请求方式为GET
+        connection.setRequestMethod("GET");
+        // 连接
+        connection.connect();
+
+        // 获取响应码
+        int responseCode = connection.getResponseCode();
+        // 如果为重定向
+        if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP) {
+            // 获得重定向的URL
+            String redirectUrl = connection.getHeaderField("Location");
+            // 以重定向URL为主
+            if (redirectUrl != null) {
+                // 重新创建URL对象
+                URL newUrl = new URL(redirectUrl);
+                // 打开新的连接
+                connection = (HttpURLConnection) newUrl.openConnection();
+                // 设置请求方式为GET
+                connection.setRequestMethod("GET");
+                // 连接
+                connection.connect();
+                // 获取新的响应码
+                responseCode = connection.getResponseCode();
+            }
+        }
+
+        // 如果响应码为200 (HTTP_OK)
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            // 使用Jsoup库从指定URL获取文档对象
+            Document document = Jsoup.connect(url).get();
+            // 查找第一个匹配的<link>标签，属性值包含"shortcut"或"icon"
+            Element faviconLink = document.select("link[rel~=(?i)^((shortcut )?icon)]").first();
+            // 如果找到图标链接
+            if (faviconLink != null) {
+                // 返回图标链接的绝对路径
+                return faviconLink.attr("abs:href");
+            }
+        }
+
+        // 如果不存在favicon图标链接，则返回null
+        return null;
     }
 }
