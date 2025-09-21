@@ -20,8 +20,8 @@ package com.charagol.shortlink.project.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.charagol.shortlink.project.common.convention.result.Result;
 import com.charagol.shortlink.project.common.convention.result.Results;
+import com.charagol.shortlink.project.dto.req.RecycleBinPageReqDTO;
 import com.charagol.shortlink.project.dto.req.RecycleBinSaveReqDTO;
-import com.charagol.shortlink.project.dto.req.ShortLinkPageReqDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.RecycleBinService;
 import lombok.RequiredArgsConstructor;
@@ -55,8 +55,8 @@ public class RecycleBinController {
      * 分页查询回收站短链接
      */
     @GetMapping("/api/short-link/v1/recycle-bin/page")
-    public Result<IPage<ShortLinkPageRespDTO>> pageShortLink(ShortLinkPageReqDTO requestParam) {
-        log.info("8081:分页查询回收站小组：{}",requestParam.getGid());
+    public Result<IPage<ShortLinkPageRespDTO>> pageShortLink(RecycleBinPageReqDTO requestParam) {
+        log.info("8081:分页查询回收站组名：{}",requestParam.getGidList());
         return Results.success(recycleBinService.pageShortLink(requestParam));
     }
 

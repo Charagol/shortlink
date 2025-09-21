@@ -15,35 +15,25 @@
  * limitations under the License.
  */
 
-package com.charagol.shortlink.project.service;
+package com.charagol.shortlink.admin.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.service.IService;
-import com.charagol.shortlink.project.dao.entity.ShortLinkDO;
-import com.charagol.shortlink.project.dto.req.RecycleBinPageReqDTO;
-import com.charagol.shortlink.project.dto.req.RecycleBinSaveReqDTO;
-import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
+import com.charagol.shortlink.admin.common.convention.result.Result;
+import com.charagol.shortlink.admin.remote.dto.req.RecycleBinPageReqDTO;
+import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
+
 
 /**
- * 回收站管理接口层
+ * URL 回收站接口层
+ * 公众号：马丁玩编程，回复：加群，添加马哥微信（备注：link）获取项目资料
  */
-public interface RecycleBinService extends IService<ShortLinkDO> {
+public interface RecycleBinService {
+
 
     /**
-     * 保存回收站
-     *
+     * 分页查询回收站
      * @param requestParam 请求参数
+     * @return 返回参数包装
      */
-    void saveRecycleBin(RecycleBinSaveReqDTO requestParam);
-
-    /**
-     * 分页查询回收站短链接
-     *
-     * @param requestParam 分页查询短链接请求参数
-     * @return 短链接分页返回结果
-     */
-    IPage<ShortLinkPageRespDTO> pageShortLink(RecycleBinPageReqDTO requestParam);
-
-
-
+    Result<IPage<ShortLinkPageRespDTO>> pageRecycleBinShortLink(RecycleBinPageReqDTO requestParam);
 }
