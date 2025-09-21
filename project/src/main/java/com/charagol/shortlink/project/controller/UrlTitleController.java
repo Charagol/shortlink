@@ -21,6 +21,7 @@ import com.charagol.shortlink.project.common.convention.result.Result;
 import com.charagol.shortlink.project.common.convention.result.Results;
 import com.charagol.shortlink.project.service.UrlTitleService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * URL 标题控制层
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class UrlTitleController {
@@ -39,6 +41,7 @@ public class UrlTitleController {
      */
     @GetMapping("/api/short-link/v1/title")
     public Result<String> getTitleByUrl(@RequestParam("url") String url) {
+        log.info("8081:查询网站标题, url: {}", url);
         return Results.success(urlTitleService.getTitleByUrl(url));
     }
 }

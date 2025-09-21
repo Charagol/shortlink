@@ -19,23 +19,24 @@ package com.charagol.shortlink.project.service.impl;
 
 import com.charagol.shortlink.project.service.UrlTitleService;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
  * URL 标题接口实现层
- * 公众号：马丁玩编程，回复：加群，添加马哥微信（备注：link）获取项目资料
  */
+@Slf4j
 @Service
 public class UrlTitleServiceImpl implements UrlTitleService {
 
+    @SneakyThrows
     @Override
-    public String getTitleByUrl(String url) throws IOException {
+    public String getTitleByUrl(String url){
         URL tagetUrl = new URL(url);
         HttpURLConnection connection = (HttpURLConnection) tagetUrl.openConnection();
         connection.setRequestMethod("GET");
@@ -44,10 +45,10 @@ public class UrlTitleServiceImpl implements UrlTitleService {
         int responseCode = connection.getResponseCode();
         if (responseCode == HttpURLConnection.HTTP_OK) {
             Document document = Jsoup.connect(url).get();
+            log.info("8081:查询链接：{}，查得网站标题：{}", url, document.title());
             return document.title();
         }
-
+        log.warn("8081:查询链接：{}，查询失败", url);
         return "Erro while fetching title";
-
     }
 }
