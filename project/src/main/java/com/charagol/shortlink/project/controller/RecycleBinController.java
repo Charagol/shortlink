@@ -1,0 +1,50 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.charagol.shortlink.project.controller;
+
+import com.charagol.shortlink.project.common.convention.result.Result;
+import com.charagol.shortlink.project.common.convention.result.Results;
+import com.charagol.shortlink.project.dto.req.RecycleBinSaveReqDTO;
+import com.charagol.shortlink.project.service.RecycleBinService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 回收站管理控制层
+ */
+@Slf4j
+@RestController
+@RequiredArgsConstructor
+public class RecycleBinController {
+
+    private final RecycleBinService recycleBinService;
+
+    /**
+     * 保存回收站
+     */
+    @PostMapping("/api/short-link/v1/recycle-bin/save")
+    public Result<Void> saveRecycleBin(@RequestBody RecycleBinSaveReqDTO requestParam) {
+        log.info("8081:请求删除分组{}中的短链接：{}",requestParam.getGid(),requestParam.getFullShortUrl());
+        recycleBinService.saveRecycleBin(requestParam);
+        return Results.success();
+    }
+
+}
