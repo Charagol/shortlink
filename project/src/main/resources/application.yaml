@@ -25,3 +25,7 @@ mybatis-plus:
   configuration:
     #在映射实体或者属性时，将数据库中表名和字段名中的下划线去掉，按照驼峰命名法映射 address_book ---> addressBook
     map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-value: 1 # 已删除的值
+      logic-not-delete-value: 0 # 未删除的值

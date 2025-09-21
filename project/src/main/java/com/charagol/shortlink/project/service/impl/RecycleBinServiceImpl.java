@@ -97,14 +97,16 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
 
     @Override
     public void removeRecycleBin(RecycleBinRemoveReqDTO requestParam) {
+        // 1. 构造查询条件
         LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
                 .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
                 .eq(ShortLinkDO::getGid, requestParam.getGid())
                 .eq(ShortLinkDO::getEnableStatus, 1)
                 .eq(ShortLinkDO::getDelFlag, 0);
-        log.info("8081:从回收站中移除短链接：{}", requestParam.getFullShortUrl());
-        // 注意这里是直接将短链接从数据库中删除
-        // TODO 如果做逻辑删除，会占用数据库。考虑使用逻辑删除与集中表。
+        log.info("8081:从回收站中逻辑移除短链接：{}", requestParam.getFullShortUrl());
+        // 2. 直接调用 delete 方法
+        // 由于在 BaseDO 中配置了 @TableLogic，此行代码将真正执行：
+        // UPDATE t_link SET del_flag=1, update_time='...' WHERE [省去updateWrapper中条件]
         baseMapper.delete(updateWrapper);
     }
 }
