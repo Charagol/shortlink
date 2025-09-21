@@ -27,6 +27,7 @@ import com.charagol.shortlink.project.dao.entity.ShortLinkDO;
 import com.charagol.shortlink.project.dao.mapper.ShortLinkMapper;
 import com.charagol.shortlink.project.dto.req.RecycleBinPageReqDTO;
 import com.charagol.shortlink.project.dto.req.RecycleBinRecoverReqDTO;
+import com.charagol.shortlink.project.dto.req.RecycleBinRemoveReqDTO;
 import com.charagol.shortlink.project.dto.req.RecycleBinSaveReqDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.RecycleBinService;
@@ -92,5 +93,18 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
         baseMapper.update(shortLinkDO, updateWrapper);
         // 清除redis之前占位的空白键，但不做预热处理。
         stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+    }
+
+    @Override
+    public void removeRecycleBin(RecycleBinRemoveReqDTO requestParam) {
+        LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
+                .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
+                .eq(ShortLinkDO::getGid, requestParam.getGid())
+                .eq(ShortLinkDO::getEnableStatus, 1)
+                .eq(ShortLinkDO::getDelFlag, 0);
+        log.info("8081:从回收站中移除短链接：{}", requestParam.getFullShortUrl());
+        // 注意这里是直接将短链接从数据库中删除
+        // TODO 如果做逻辑删除，会占用数据库。考虑使用逻辑删除与集中表。
+        baseMapper.delete(updateWrapper);
     }
 }

@@ -22,6 +22,7 @@ import com.charagol.shortlink.project.common.convention.result.Result;
 import com.charagol.shortlink.project.common.convention.result.Results;
 import com.charagol.shortlink.project.dto.req.RecycleBinPageReqDTO;
 import com.charagol.shortlink.project.dto.req.RecycleBinRecoverReqDTO;
+import com.charagol.shortlink.project.dto.req.RecycleBinRemoveReqDTO;
 import com.charagol.shortlink.project.dto.req.RecycleBinSaveReqDTO;
 import com.charagol.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.project.service.RecycleBinService;
@@ -67,6 +68,15 @@ public class RecycleBinController {
     @PostMapping("/api/short-link/v1/recycle-bin/recover")
     public Result<Void> recoverRecycleBin(@RequestBody RecycleBinRecoverReqDTO requestParam) {
         recycleBinService.recoverRecycleBin(requestParam);
+        return Results.success();
+    }
+
+    /**
+     * 移除短链接
+     */
+    @PostMapping("/api/short-link/v1/recycle-bin/remove")
+    public Result<Void> removeRecycleBin(@RequestBody RecycleBinRemoveReqDTO requestParam) {
+        recycleBinService.removeRecycleBin(requestParam);
         return Results.success();
     }
 
