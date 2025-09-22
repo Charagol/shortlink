@@ -1,6 +1,8 @@
 package com.charagol.shortlink.project.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.date.Week;
 import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -11,8 +13,10 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.charagol.shortlink.project.common.convention.exception.ServiceException;
 import com.charagol.shortlink.project.common.enums.ValiDateTypeEnum;
+import com.charagol.shortlink.project.dao.entity.LinkAccessStatsDO;
 import com.charagol.shortlink.project.dao.entity.ShortLinkDO;
 import com.charagol.shortlink.project.dao.entity.ShortLinkGotoDO;
+import com.charagol.shortlink.project.dao.mapper.LinkAccessStatsMapper;
 import com.charagol.shortlink.project.dao.mapper.ShortLinkGotoMapper;
 import com.charagol.shortlink.project.dao.mapper.ShortLinkMapper;
 import com.charagol.shortlink.project.dto.req.ShortLinkCreateReqDTO;
@@ -59,6 +63,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final ShortLinkGotoMapper shortLinkGotoMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
+    private final LinkAccessStatsMapper linkAccessStatsMapper;
 
 
     /**
@@ -225,6 +230,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         // 第一次检查：尝试从 Redis 中获取原始链接
         String originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
         if (StrUtil.isNotBlank(originalLink)) {
+            shortLinkStats(fullShortUrl,null,request,response);
             response.sendRedirect(originalLink);
             return;
         }
@@ -247,6 +253,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 因为可能在等待锁的过程中，其他线程已经查询完数据库并回填了缓存
             originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
             if (StrUtil.isNotBlank(originalLink)) {
+                shortLinkStats(fullShortUrl,null,request,response);
                 response.sendRedirect(originalLink);
                 return;
             }
@@ -278,13 +285,39 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     shortLinkDO.getOriginUrl(),
                     LinkUtil.getLinkCacheValidTime(shortLinkDO.getValidDate()),TimeUnit.MILLISECONDS
             );
+            shortLinkStats(fullShortUrl,shortLinkDO.getGid(),request,response);
             response.sendRedirect(shortLinkDO.getOriginUrl());
         } finally {
             lock.unlock();
         }
     }
 
-
+    private void shortLinkStats(String fullShortUrl, String gid, HttpServletRequest request, HttpServletResponse response){
+        int hour = DateUtil.hour(new Date(), true);
+        Week week = DateUtil.dayOfWeekEnum(new Date());
+        int weekValue = week.getIso8601Value();
+        if (StrUtil.isBlank(gid)){
+            LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
+                    .eq(shortLinkGotoDO::getFullShortUrl, fullShortUrl);
+            ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
+            gid = shortLinkGotoDO.getGid();
+        }
+        try {
+            LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
+                    .pv(1)
+                    .uv(1)
+                    .uip(1)
+                    .hour(hour)
+                    .weekday(weekValue)
+                    .fullShortUrl(fullShortUrl)
+                    .gid(gid)
+                    .date(new Date())
+                    .build();
+            linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
 
     private String generateSuffix(ShortLinkCreateReqDTO requestParam) {
