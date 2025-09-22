@@ -298,7 +298,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         int weekValue = week.getIso8601Value();
         if (StrUtil.isBlank(gid)){
             LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
-                    .eq(shortLinkGotoDO::getFullShortUrl, fullShortUrl);
+                    .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
             ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
             gid = shortLinkGotoDO.getGid();
         }

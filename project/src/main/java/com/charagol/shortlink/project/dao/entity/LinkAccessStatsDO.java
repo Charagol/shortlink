@@ -44,7 +44,7 @@ public class LinkAccessStatsDO extends BaseDO {
     /**
      * gid
      */
-    private Long gid;
+    private String gid;
 
     /**
      * 完整短链接
