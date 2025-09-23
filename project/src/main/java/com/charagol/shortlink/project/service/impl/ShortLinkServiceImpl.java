@@ -73,6 +73,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final LinkOsStatsMapper linkOsStatsMapper;
     private final LinkBrowserStatsMapper linkBrowserStatsMapper;
     private final LinkAccessLogsMapper linkAccessLogsMapper;
+    private final LinkDeviceStatsMapper linkDeviceStatsMapper;
 
     @Value("${short-link.stats.locale.amap-key}")  // 使用springbootframword.bean的方式注入
     private String statsLocaleAmapKey;
@@ -427,9 +428,17 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .fullShortUrl(fullShortUrl)
                     .gid(gid)
                     .build();
-
-
             linkAccessLogsMapper.insert(linkAccessLogsDO);
+
+            // 七、
+            LinkDeviceStatsDO linkDeviceStatsDO = LinkDeviceStatsDO.builder()
+                    .device(LinkUtil.getDevice(request))
+                    .cnt(1)
+                    .gid(gid)
+                    .fullShortUrl(fullShortUrl)
+                    .date(currentDate)
+                    .build();
+            linkDeviceStatsMapper.shortLinkDeviceState(linkDeviceStatsDO);
 
         } catch (Exception e) {
             log.error("shortLinkStats error", e);
