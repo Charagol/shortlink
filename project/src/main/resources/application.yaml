@@ -25,3 +25,9 @@ mybatis-plus:
   configuration:
     #在映射实体或者属性时，将数据库中表名和字段名中的下划线去掉，按照驼峰命名法映射 address_book ---> addressBook
     map-underscore-to-camel-case: true
+
+
+short-link:
+  stats:
+    locale:
+      amap-key: 544b23ecca51959fbabb78ac5b41821c
