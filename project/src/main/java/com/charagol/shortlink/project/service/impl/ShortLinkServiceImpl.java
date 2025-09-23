@@ -299,7 +299,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         AtomicBoolean uvFirstFlag = new AtomicBoolean();
         Cookie[] cookies = request.getCookies();
 
+
         try {
+            // 一、 uv处理逻辑
             // 1. 新用户处理逻辑：
             Runnable addResponseCookieTask = () -> {
                 String uv = UUID.fastUUID().toString();
@@ -324,8 +326,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                         .map(Cookie::getValue)
                         .ifPresentOrElse(each -> {
                             // 2.1.1 如果有key为uv的cookie，取出value:UUID, 判断是否存在于Redis中
-                            Long added = stringRedisTemplate.opsForSet().add("short-link:stats:uv" + fullShortUrl, each); // 添加成功返回1（新用户），已有则失败返回0（老用户）
-                            uvFirstFlag.set(added != null && added > 0L);  // 对于新用户，added 为 1
+                            Long uvAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uv" + fullShortUrl, each); // 添加成功返回1（新用户），已有则失败返回0（老用户）
+                            uvFirstFlag.set(uvAdded != null && uvAdded > 0L);  // 对于新用户，added 为 1
                         }
                         // 2.1.2 如果没有key为uv的cookie，说明是新用户。
                         , addResponseCookieTask);
@@ -333,6 +335,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 // 2.2 为空：新用户
                 addResponseCookieTask.run();
             }
+
+            // 二、 pv处理逻辑
+            String remoteAddr = LinkUtil.getIp(request);
+            Long uipAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uip" + fullShortUrl, remoteAddr);
+            boolean uipFirstFlag = uipAdded != null && uipAdded > 0L;
 
             if (StrUtil.isBlank(gid)){
                 LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
@@ -347,7 +354,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
                     .pv(1)
                     .uv(uvFirstFlag.get() ? 1 : 0)
-                    .uip(1)
+                    .uip(uipFirstFlag ? 1 : 0)
                     .hour(hour)
                     .weekday(weekValue)
                     .fullShortUrl(fullShortUrl)
