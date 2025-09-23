@@ -18,14 +18,8 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.charagol.shortlink.project.common.convention.exception.ServiceException;
 import com.charagol.shortlink.project.common.enums.ValiDateTypeEnum;
-import com.charagol.shortlink.project.dao.entity.LinkAccessStatsDO;
-import com.charagol.shortlink.project.dao.entity.LinkLocaleStatsDO;
-import com.charagol.shortlink.project.dao.entity.ShortLinkDO;
-import com.charagol.shortlink.project.dao.entity.ShortLinkGotoDO;
-import com.charagol.shortlink.project.dao.mapper.LinkAccessStatsMapper;
-import com.charagol.shortlink.project.dao.mapper.LinkLocaleStatsMapper;
-import com.charagol.shortlink.project.dao.mapper.ShortLinkGotoMapper;
-import com.charagol.shortlink.project.dao.mapper.ShortLinkMapper;
+import com.charagol.shortlink.project.dao.entity.*;
+import com.charagol.shortlink.project.dao.mapper.*;
 import com.charagol.shortlink.project.dto.req.ShortLinkCreateReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkPageReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkUpdateReqDTO;
@@ -75,6 +69,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final RedissonClient redissonClient;
     private final LinkAccessStatsMapper linkAccessStatsMapper;
     private final LinkLocaleStatsMapper linkLocaleStatsMapper;
+    private final LinkOsStatsMapper linkOsStatsMapper;
 
     @Value("${short-link.stats.locale.amap-key}")  // 使用springbootframword.bean的方式注入
     private String statsLocaleAmapKey;
@@ -391,10 +386,21 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                         .fullShortUrl(fullShortUrl)
                         .country("中国")
                         .gid(gid)
-                        .date(new Date())
+                        .date(currentDate)
                         .build();
                 linkLocaleStatsMapper.shortLinkLocaleState(linkLocaleStatsDO);
             }
+
+            // 四、 os统计
+            LinkOsStatsDO linkOsStatsDO = LinkOsStatsDO.builder()
+                    .os(LinkUtil.getOs(request))
+                    .cnt(1)
+                    .fullShortUrl(fullShortUrl)
+                    .gid(gid)
+                    .date(currentDate)
+                    .build();
+            linkOsStatsMapper.shortLinkOsState(linkOsStatsDO);
+
         } catch (Exception e) {
             log.error("shortLinkStats error", e);
         }
