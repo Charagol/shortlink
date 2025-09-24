@@ -443,7 +443,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
             // 八、网络统计
             LinkNetworkStatsDO linkNetworkStatsDO = LinkNetworkStatsDO.builder()
-                    .network(LinkUtil.getNetwork(((HttpServletRequest) request)))
+                    .network(LinkUtil.getNetwork(request))
                     .cnt(1)
                     .gid(gid)
                     .fullShortUrl(fullShortUrl)

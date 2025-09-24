@@ -35,17 +35,21 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
 
     @Override
     public ShortLinkStatsRespDTO oneShortLinkStats(ShortLinkStatsReqDTO requestParam) {
+        // 取基础数据：date、pv、uv、uip
         List<LinkAccessStatsDO> listStatsByShortLink = linkAccessStatsMapper.listStatsByShortLink(requestParam);
         if (CollUtil.isEmpty(listStatsByShortLink)) {
             return null;
         }
         // 基础访问详情
+        // 1. 生成返回实体。等待数据包装。
         List<ShortLinkStatsAccessDailyRespDTO> daily = new ArrayList<>();
+        // 2. 生成一个从开始到结束的日期列表，
         List<String> rangeDates = DateUtil.rangeToList(DateUtil.parse(requestParam.getStartDate()), DateUtil.parse(requestParam.getEndDate()), DateField.DAY_OF_MONTH).stream()
                 .map(DateUtil::formatDate)
                 .toList();
+        // 3. 遍历日期列表：ifPresentOrElse 有就取，没有就 0
         rangeDates.forEach(each -> listStatsByShortLink.stream()
-                .filter(item -> Objects.equals(each, DateUtil.formatDate(item.getDate())))
+                .filter(item -> Objects.equals(each, DateUtil.formatDate(item.getDate())))     // 遍历的每个日期都与流中的日期进行比较。日期为each，流为item。
                 .findFirst()
                 .ifPresentOrElse(item -> {
                     ShortLinkStatsAccessDailyRespDTO accessDailyRespDTO = ShortLinkStatsAccessDailyRespDTO.builder()
@@ -54,7 +58,7 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                             .uv(item.getUv())
                             .uip(item.getUip())
                             .build();
-                    daily.add(accessDailyRespDTO);
+                    daily.add(accessDailyRespDTO);  // 有：取参构建当天返回实体并添加
                 }, () -> {
                     ShortLinkStatsAccessDailyRespDTO accessDailyRespDTO = ShortLinkStatsAccessDailyRespDTO.builder()
                             .date(each)
@@ -62,17 +66,22 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                             .uv(0)
                             .uip(0)
                             .build();
-                    daily.add(accessDailyRespDTO);
+                    daily.add(accessDailyRespDTO);  // 无：填0构建当天返回实体并添加
                 }));
         // 地区访问详情（仅国内）
+        // 1. 生成返回实体。等待数据包装。
         List<ShortLinkStatsLocaleCNRespDTO> localeCnStats = new ArrayList<>();
+        // 2. 查询
         List<LinkLocaleStatsDO> listedLocaleByShortLink = linkLocaleStatsMapper.listLocaleByShortLink(requestParam);
+        // 3. 计算所有省份的总访问量 (总订单量)
         int localeCnSum = listedLocaleByShortLink.stream()
-                .mapToInt(LinkLocaleStatsDO::getCnt)
+                .mapToInt(LinkLocaleStatsDO::getCnt)  // 从对象的流 Stream<LinkLocaleStatsDO> 中取出每个对象 cnt 的值，加总
                 .sum();
+        // 4. 遍历每个省：计算占比并组装结果
         listedLocaleByShortLink.forEach(each -> {
             double ratio = (double) each.getCnt() / localeCnSum;
             double actualRatio = Math.round(ratio * 100.0) / 100.0;
+            // 构建一个地区统计响应对象，一个个被 add 到列表中
             ShortLinkStatsLocaleCNRespDTO localeCNRespDTO = ShortLinkStatsLocaleCNRespDTO.builder()
                     .cnt(each.getCnt())
                     .locale(each.getProvince())
@@ -105,10 +114,10 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         // 一周访问详情
         List<Integer> weekdayStats = new ArrayList<>();
         List<LinkAccessStatsDO> listWeekdayStatsByShortLink = linkAccessStatsMapper.listWeekdayStatsByShortLink(requestParam);
-        for (int i = 0; i < 8; i++) {
+        for (int i = 1; i < 8; i++) {
             AtomicInteger weekday = new AtomicInteger(i);
             int weekdayCnt = listWeekdayStatsByShortLink.stream()
-                    .filter(each -> Objects.equals(each.getHour(), weekday.get()))
+                    .filter(each -> Objects.equals(each.getWeekday(), weekday.get()))
                     .findFirst()
                     .map(LinkAccessStatsDO::getPv)
                     .orElse(0);
