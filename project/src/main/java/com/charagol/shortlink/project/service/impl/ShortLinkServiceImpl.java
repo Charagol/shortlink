@@ -310,7 +310,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         Cookie[] cookies = request.getCookies();
         AtomicReference<String> uv = new AtomicReference<>();
 
-        String today = DateUtil.today();
+        String today = DateUtil.today();  // 给redis用的。注意：此时设置的为redis=key中加入当天时间。当天跨小时之后，uv等取值还是会为0（看统计量纲）
+        Date currentDate = new Date();    // 给获取当前时分秒用的
         try {
             // 一、 uv处理逻辑
             // 1. 新用户处理逻辑：
@@ -328,7 +329,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 response.addCookie(uvCookie);
                 uvFirstFlag.set(Boolean.TRUE);
                 String uvRedisKey = "short-link:stats:uv:" + fullShortUrl + ":" + today;   // 设置key
-                Long added = stringRedisTemplate.opsForSet().add(uvRedisKey, uv.get());    // key:short-link:stats:uv:fullShortUrl:2025-9-25  value:UUID
+                stringRedisTemplate.opsForSet().add(uvRedisKey, uv.get());    // key:short-link:stats:uv:fullShortUrl:2025-9-25  value:UUID
                 stringRedisTemplate.expire(uvRedisKey, 26, TimeUnit.HOURS);         // 设置过期时间
             };
             // 2. 判断 cookie 是否为空
@@ -344,7 +345,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                             String uvRedisKey = "short-link:stats:uv:" + fullShortUrl + ":" + today;
                             Long uvAdded = stringRedisTemplate.opsForSet().add(uvRedisKey, each); // 添加成功返回1（新用户），已有则失败返回0（老用户）
                             uvFirstFlag.set(uvAdded != null && uvAdded > 0L);  // 对于新用户，added 为 1
-                            stringRedisTemplate.expire(uvRedisKey, 26, TimeUnit.HOURS);
+                            if (uvFirstFlag.get()) {
+                                stringRedisTemplate.expire(uvRedisKey, 26, TimeUnit.HOURS);  // 这里可能成功或失败，所以需要if判断
+                            }
                         }
                         // 2.1.2 如果没有key为uv的cookie，说明是新用户。
                         , addResponseCookieTask);
@@ -355,18 +358,21 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
             // 二、 pv处理逻辑
             String remoteAddr = LinkUtil.getIp(request);
+            // 1. 设置redis-key和过期时间
             String uipRedisKey  = "short-link:stats:uip" + ":" + today + fullShortUrl;
             Long uipAdded = stringRedisTemplate.opsForSet().add(uipRedisKey, remoteAddr);
-            stringRedisTemplate.expire(uipRedisKey, 26, TimeUnit.HOURS);
             boolean uipFirstFlag = uipAdded != null && uipAdded > 0L;
-
+            if (uipFirstFlag) {
+                stringRedisTemplate.expire(uipRedisKey, 26, TimeUnit.HOURS);   // 这里可能成功或失败，所以需要if判断
+            }
+            // 2. 前端没传gid就自己去拿
             if (StrUtil.isBlank(gid)){
                 LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
                         .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
                 ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
                 gid = shortLinkGotoDO.getGid();
             }
-            Date currentDate = new Date();
+            // 3. 获取当前时间信息并写入数据库
             int hour = DateUtil.hour(currentDate, true);
             Week week = DateUtil.dayOfWeekEnum(currentDate);
             int weekValue = week.getIso8601Value();
