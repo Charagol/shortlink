@@ -1,13 +1,12 @@
 package com.charagol.shortlink.admin.remote.dto.req;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.Data;
 
 /**
  * 短链接监控请求参数
  */
 @Data
-public class ShortLinkStatsAccessRecordReqDTO extends Page {
+public class ShortLinkStatsAccessRecordReqDTO{
 
     /**
      * 完整短链接
