@@ -1,20 +1,24 @@
 package com.charagol.shortlink.project.service.impl;
 
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateUtil;
-import com.charagol.shortlink.project.dao.entity.LinkAccessStatsDO;
-import com.charagol.shortlink.project.dao.entity.LinkDeviceStatsDO;
-import com.charagol.shortlink.project.dao.entity.LinkLocaleStatsDO;
-import com.charagol.shortlink.project.dao.entity.LinkNetworkStatsDO;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.charagol.shortlink.project.dao.entity.*;
 import com.charagol.shortlink.project.dao.mapper.*;
+import com.charagol.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import com.charagol.shortlink.project.dto.resp.*;
 import com.charagol.shortlink.project.service.ShortLinkStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -232,4 +236,60 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 .networkStats(networkStats)
                 .build();
     }
+
+    /**
+     * 查询指定短链接在指定时间内的访问记录，并给每一条记录标记新老用户
+     *
+     * @param requestParam 获取短链接指定时间内访问记录监控数据入参
+     * @return
+     */
+    @Override
+    public IPage<ShortLinkStatsAccessRecordRespDTO> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
+
+        // 1. 分页查询出指定短链接的所有记录
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-M-d");   // 日期格式注意点。如果为MM但入参为1-9月，会报错
+        LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper = Wrappers.lambdaQuery(LinkAccessLogsDO.class)
+                .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
+                .eq(LinkAccessLogsDO::getFullShortUrl, requestParam.getFullShortUrl())
+                .eq(LinkAccessLogsDO::getDelFlag, 0)
+                .between(LinkAccessLogsDO::getCreateTime,requestParam.getStartDate(), LocalDate.parse(requestParam.getEndDate(),formatter).plusDays(1))   // 至结束日期0点（不包含）需+1
+                .orderByDesc(LinkAccessLogsDO::getCreateTime);
+        IPage<LinkAccessLogsDO> linkAccessLogsDOIPage = linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
+        // 2. 从LinkAccessLogsDO中获取信息，组装成ShortLinkStatsAccessRecordRespDTO（包含更多参数。目标回传实体）
+        IPage<ShortLinkStatsAccessRecordRespDTO> actualResult = linkAccessLogsDOIPage.convert(
+                each -> BeanUtil.toBean(each, ShortLinkStatsAccessRecordRespDTO.class)
+        );
+
+        // 2.5 如果没有记录，直接返回（同时避免空指针）
+        if (actualResult.getRecords().isEmpty()) {
+            return actualResult;
+        }
+
+        // 3. 获取用户List。准备一个个去查
+        List<String> userAccessLogsList = actualResult.getRecords().stream()
+                .map(ShortLinkStatsAccessRecordRespDTO::getUser)
+                .toList();
+
+        // 4. 查询用户的uvType，对于每一个用户得到键值对。Map<USER, UvType>而后组成List
+        List<Map<String, Object>> uvTypeList = linkAccessLogsMapper.selectUvTypeByUsers(
+                requestParam.getGid(),
+                requestParam.getFullShortUrl(),
+                requestParam.getStartDate(),
+                requestParam.getEndDate(),
+                userAccessLogsList);
+
+        //5. 为每一条记录添加uvType，如果没有则保底添加为旧访客
+        actualResult.getRecords().forEach(each -> {
+            String uvType = uvTypeList.stream()
+                    .filter(item -> Objects.equals(each.getUser(), item.get("USER")))   // 这里的键名是USER，需与SQL中返回值一致
+                    .findFirst()
+                    .map(item -> item.get("uvType"))
+                    .map(Object::toString)
+                    .orElse("旧访客");
+            each.setUvType(uvType);
+        });
+
+        return actualResult;
+    }
+
 }

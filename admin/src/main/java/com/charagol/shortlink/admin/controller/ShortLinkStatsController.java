@@ -1,17 +1,22 @@
 package com.charagol.shortlink.admin.controller;
 
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.charagol.shortlink.admin.common.convention.result.Result;
 import com.charagol.shortlink.admin.remote.dto.ShortLinkRemoteService;
+import com.charagol.shortlink.admin.remote.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import com.charagol.shortlink.admin.remote.dto.req.ShortLinkStatsReqDTO;
+import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkStatsAccessRecordRespDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 短链接监控控制层
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class ShortLinkStatsController {
@@ -28,5 +33,14 @@ public class ShortLinkStatsController {
     @GetMapping("/api/short-link/admin/v1/stats")
     public Result<ShortLinkStatsRespDTO> shortLinkStats(ShortLinkStatsReqDTO requestParam) {
         return shortLinkRemoteService.oneShortLinkStats(requestParam);
+    }
+
+    /**
+     * 访问单个短链接指定时间内访问记录监控数据
+     */
+    @GetMapping("/api/short-link/admin/v1/stats/access-record")
+    public Result<IPage<ShortLinkStatsAccessRecordRespDTO>> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
+        log.info("访问单个短链接指定时间内访问记录监控数据入参:{}", requestParam);
+        return shortLinkRemoteService.shortLinkStatsAccessRecord(requestParam);
     }
 }
