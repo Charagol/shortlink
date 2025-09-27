@@ -44,6 +44,17 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         if (CollUtil.isEmpty(listStatsByShortLink)) {
             return null;
         }
+        // 存储总计的PV, UV, UIP
+        long totalPv = listStatsByShortLink.stream()
+                .mapToLong(LinkAccessStatsDO::getPv) // 提取每个DO的pv值
+                .sum();                               // 求和
+        long totalUv = listStatsByShortLink.stream()
+                .mapToLong(LinkAccessStatsDO::getUv) // 提取每个DO的uv值
+                .sum();                               // 求和
+        long totalUip = listStatsByShortLink.stream()
+                .mapToLong(LinkAccessStatsDO::getUip)// 提取每个DO的uip值
+                .sum();                               // 求和
+
         // 基础访问详情
         // 1. 生成返回实体。等待数据包装。
         List<ShortLinkStatsAccessDailyRespDTO> daily = new ArrayList<>();
@@ -223,8 +234,10 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                     .build();
             networkStats.add(networkRespDTO);
         });
-        // TODO 返回实体中的pv，uv，uip参数没有进行填充，需要后续优化
         return ShortLinkStatsRespDTO.builder()
+                .pv(totalPv)
+                .uv(totalUv)
+                .uip(totalUip)
                 .daily(daily)
                 .localeCnStats(localeCnStats)
                 .hourStats(hourStats)

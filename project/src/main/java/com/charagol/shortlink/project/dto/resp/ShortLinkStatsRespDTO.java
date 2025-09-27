@@ -20,17 +20,17 @@ public class ShortLinkStatsRespDTO {
     /**
      * 访问量
      */
-    private Integer pv;
+    private Long pv;
 
     /**
      * 独立访客数
      */
-    private Integer uv;
+    private Long uv;
 
     /**
      * 独立IP数
      */
-    private Integer uip;
+    private Long uip;
 
     /**
      * 基础访问详情
