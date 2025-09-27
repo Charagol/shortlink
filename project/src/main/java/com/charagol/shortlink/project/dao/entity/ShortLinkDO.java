@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 
 import java.util.Date;
 
+/**
+ * 短链接实体
+ */
 @Data
 @Builder
 @TableName("t_link")
@@ -82,5 +85,20 @@ public class ShortLinkDO extends BaseDO {
      * 网站标识
      */
     private String favicon;
+
+    /**
+     * 历史PV
+     */
+    private Integer totalPv;
+
+    /**
+     * 历史UV
+     */
+    private Integer totalUv;
+
+    /**
+     * 历史UIP
+     */
+    private Integer totalUip;
 
 }
