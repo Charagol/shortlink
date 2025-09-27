@@ -104,6 +104,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .describe(requestParam.getDescribe())
                 .shortUri(shortLinkSuffix)
                 .enableStatus(0)
+                .totalPv(0)
+                .totalUv(0)
+                .totalUip(0)
                 .fullShortUrl(fullShortUrl)
                 .favicon(getFavicon(requestParam.getOriginUrl()))
                 .build();
@@ -305,6 +308,15 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
     }
 
+    /**
+     * 统计短链接访问数据，每次访问-跳转都会记录这次的各种信息
+     * 从信息中构建实体，最后写入对应表中。配合restoreUrl实现。
+     *
+     * @param fullShortUrl 完整短链接
+     * @param gid 分组名
+     * @param request 请求信息
+     * @param response 响应信息
+     */
     private void shortLinkStats(String fullShortUrl, String gid, HttpServletRequest request, HttpServletResponse response){
         AtomicBoolean uvFirstFlag = new AtomicBoolean();
         Cookie[] cookies = request.getCookies();
@@ -475,7 +487,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
     }
 
-
+    /**
+     *  生成短链接后缀-工具方法
+     * @param requestParam 短链接后缀生成请求参数
+     * @return 短链接后缀
+     */
     private String generateSuffix(ShortLinkCreateReqDTO requestParam) {
         int customGenerateCount = 0;
         String shortUri;
