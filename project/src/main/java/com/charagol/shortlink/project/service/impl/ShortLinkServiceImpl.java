@@ -206,19 +206,22 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
      */
     @Override
     public IPage<ShortLinkPageRespDTO> pageShortLink(ShortLinkPageReqDTO requestParam) {
-        LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
-                .eq(ShortLinkDO::getGid, requestParam.getGid())
-                .eq(ShortLinkDO::getEnableStatus, 0)
-                .eq(ShortLinkDO::getDelFlag, 0);
-
-        // 1. selectPage传入参数包括requestParam，其中封装了size、current等分页信息，相当于指定limit
-        // 2. queryWrapper是查询条件，等价于：WHERE gid = '15' AND enable_status = 0 AND del_flag = 0。
-        IPage<ShortLinkDO> resultPage = baseMapper.selectPage(requestParam, queryWrapper);
+        // NOTE
+        //  调用Mybatis结合xml的传统查询来实现。
+        //  内部实现了联查。目的为：获取短链接列表及其聚合统计。 而今日聚合数据都在t_link_today中。类merge添加字段为最优解
+        //  LEFT JOIN能实现单次数据库访问，且结果映射简单。如果分查需要查n+1次
+        IPage<ShortLinkDO> resultPage = baseMapper.pageLink(requestParam);
 
         // resultPage继承自Ipage，具有convert方法，可以将查询结果转换为指定类型
         return resultPage.convert(each -> BeanUtil.toBean(each, ShortLinkPageRespDTO.class));
     }
 
+
+    /**
+     * 根据gid查询短链接数量
+     * @param requestParam 传入gid的列表
+     * @return 短链接数量实体列表
+     */
     @Override
     public List<ShortLinkGroupCountQueryRespDTO> listGroupShortLinkCount(List<String> requestParam) {
         QueryWrapper<ShortLinkDO> queryWrapper = Wrappers.query(new ShortLinkDO())

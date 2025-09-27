@@ -244,6 +244,12 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
      * @param requestParam 获取短链接指定时间内访问记录监控数据入参
      * @return
      */
+
+     // NOTE
+     //  需求：查询某个特定短链接在指定时间段内的每一条详细访问日志，并额外标记每个日志是“新访客”还是“老访客”
+     //  特点：数据粒度是单次访问日志，需要获取原始明细数据，并且在此基础上进行一些额外的业务判断（新老访客标记）
+     //  策略：采用 “N+1” 模式的变种（先查明细，再`批量`查标记）。因为明细数据本身不包含“新老访客”的直接标记，这个标记需要通过更复杂的查询获得
+     //  区别：不同于ShortLinkServiceImpl中的pageShortLink方法，查t_link而后联查today来获得今日统计。
     @Override
     public IPage<ShortLinkStatsAccessRecordRespDTO> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
 

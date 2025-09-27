@@ -36,4 +36,8 @@ public class ShortLinkPageReqDTO extends Page<ShortLinkDO> {
     // 所以Page中的属性都可以在ShortLinkPageReqDTO中使用
     // 包括传入的current、size、orders等属性
 
+    /**
+     * 排序标识
+     */
+    private String orderTag;
 }
