@@ -19,6 +19,8 @@ package com.charagol.shortlink.project.dao.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.charagol.shortlink.project.dao.entity.LinkAccessLogsDO;
+import com.charagol.shortlink.project.dao.entity.LinkAccessStatsDO;
+import com.charagol.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -53,6 +55,25 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
             "    count DESC " +
             "LIMIT 5;")
     List<HashMap<String, Object>> listTopIpByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
+
+    /**
+     * 根据分组获取指定日期内高频访问IP数据
+     */
+    @Select("SELECT " +
+            "    ip, " +
+            "    COUNT(ip) AS count " +
+            "FROM " +
+            "    t_link_access_logs " +
+            "WHERE " +
+            "    gid = #{param.gid} " +
+            "    AND create_time BETWEEN #{param.startDate} and #{param.endDate} " +
+            "GROUP BY " +
+            "    gid, ip " +
+            "ORDER BY " +
+            "    count DESC " +
+            "LIMIT 5;")
+    List<HashMap<String, Object>> listTopIpByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
+
 
     /**
      * 根据短链接获取指定日期内新旧访客数据
@@ -105,4 +126,21 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
             @Param("startDate") String startDate,
             @Param("endDate") String endDate,
             @Param("userAccessLogsList") List<String> userAccessLogsList);
+
+
+    /**
+     * 根据分组获取指定日期内PV、UV、UIP数据
+     */
+    @Select("SELECT " +
+            "    COUNT(user) AS pv, " +
+            "    COUNT(DISTINCT user) AS uv, " +
+            "    COUNT(DISTINCT ip) AS uip " +
+            "FROM " +
+            "    t_link_access_logs " +
+            "WHERE " +
+            "    gid = #{param.gid} " +
+            "    AND create_time BETWEEN #{param.startDate} and #{param.endDate} " +
+            "GROUP BY " +
+            "    gid;")
+    LinkAccessStatsDO findPvUvUidStatsByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 }
