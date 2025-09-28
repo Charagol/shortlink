@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.charagol.shortlink.project.dao.entity.*;
 import com.charagol.shortlink.project.dao.mapper.*;
+import com.charagol.shortlink.project.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkStatsReqDTO;
@@ -479,6 +480,53 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 userAccessLogsList);
 
         //5. 为每一条记录添加uvType，如果没有则保底添加为旧访客
+        actualResult.getRecords().forEach(each -> {
+            String uvType = uvTypeList.stream()
+                    .filter(item -> Objects.equals(each.getUser(), item.get("USER")))   // 这里的键名是USER，需与SQL中返回值一致
+                    .findFirst()
+                    .map(item -> item.get("uvType"))
+                    .map(Object::toString)
+                    .orElse("旧访客");
+            each.setUvType(uvType);
+        });
+
+        return actualResult;
+    }
+
+    /**
+     * 查询分组短链接在指定时间内的访问记录，并给每一条记录标记新老用户
+     *
+     * @param requestParam 获取分组短链接指定时间内访问记录监控数据入参
+     * @return 分组短链接返回参数
+     */
+    @Override
+    public IPage<ShortLinkStatsAccessRecordRespDTO> shortLinkGroupStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam) {
+        // 分页查询出指定短链接的所有记录
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-M-d");   // 日期格式注意点。如果为MM但入参为1-9月，会报错
+        LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper = Wrappers.lambdaQuery(LinkAccessLogsDO.class)
+                .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
+                .eq(LinkAccessLogsDO::getDelFlag, 0)
+                .between(LinkAccessLogsDO::getCreateTime,requestParam.getStartDate(), LocalDate.parse(requestParam.getEndDate(),formatter).plusDays(1))   // 至结束日期0点（不包含）需+1
+                .orderByDesc(LinkAccessLogsDO::getCreateTime);
+        IPage<LinkAccessLogsDO> linkAccessLogsDOIPage = linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
+        IPage<ShortLinkStatsAccessRecordRespDTO> actualResult = linkAccessLogsDOIPage.convert(
+                each -> BeanUtil.toBean(each, ShortLinkStatsAccessRecordRespDTO.class)
+        );
+
+        if (actualResult.getRecords().isEmpty()) {
+            return actualResult;
+        }
+
+        List<String> userAccessLogsList = actualResult.getRecords().stream()
+                .map(ShortLinkStatsAccessRecordRespDTO::getUser)
+                .toList();
+        List<Map<String, Object>> uvTypeList = linkAccessLogsMapper.selectGroupUvTypeByUsers(
+                requestParam.getGid(),
+                requestParam.getStartDate(),
+                requestParam.getEndDate(),
+                userAccessLogsList);
+
+        // 为每一条记录添加uvType，如果没有则保底添加为旧访客
         actualResult.getRecords().forEach(each -> {
             String uvType = uvTypeList.stream()
                     .filter(item -> Objects.equals(each.getUser(), item.get("USER")))   // 这里的键名是USER，需与SQL中返回值一致

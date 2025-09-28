@@ -125,4 +125,33 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
             @Param("startDate") String startDate,
             @Param("endDate") String endDate,
             @Param("userAccessLogsList") List<String> userAccessLogsList);
+
+    /**
+     * 获取分组用户信息以判断是否新老访客
+     * Case：创建时间在查询范围内，就是新用户。否则就是老用户
+     */
+    @Select(" <script>" +
+            "SELECT " +
+            "   USER, " +
+            "   CASE " +
+            "      WHEN MIN(create_time) BETWEEN STR_TO_DATE(CONCAT(#{startDate}, ' 00:00:00'), '%Y-%m-%d %H:%i:%s') " +
+            "      AND STR_TO_DATE(CONCAT(#{endDate}, ' 23:59:59'), '%Y-%m-%d %H:%i:%s') THEN '新访客' " +
+            "      ELSE '老访客' " +
+            "   END AS uvType " +
+            "FROM " +
+            "   t_link_access_logs " +
+            "WHERE " +
+            "   gid = #{gid} " +
+            "   AND user IN " +
+            "   <foreach item='item' index='index' collection='userAccessLogsList' open='(' separator=',' close=')'> " +
+            "      #{item} " +
+            "   </foreach> " +
+            "GROUP BY " +
+            "   user " +
+            "</script>")
+    List<Map<String, Object>> selectGroupUvTypeByUsers(
+            @Param("gid") String gid,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate,
+            @Param("userAccessLogsList") List<String> userAccessLogsList);
 }

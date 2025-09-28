@@ -2,6 +2,7 @@ package com.charagol.shortlink.project.service;
 
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.charagol.shortlink.project.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import com.charagol.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
@@ -39,4 +40,11 @@ public interface ShortLinkStatsService {
      */
     ShortLinkStatsRespDTO groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam);
 
+    /**
+     * 获取分组短链接指定时间内访问记录监控数据
+     *
+     * @param requestParam 获取分组短链接指定时间内访问记录监控数据入参
+     * @return 分组短链接指定时间内访问记录监控数据
+     */
+    IPage<ShortLinkStatsAccessRecordRespDTO>  shortLinkGroupStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam);
 }
