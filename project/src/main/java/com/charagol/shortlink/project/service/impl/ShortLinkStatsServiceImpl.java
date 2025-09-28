@@ -264,8 +264,15 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         if (CollUtil.isEmpty(listStatsByGroup)) {
             return null;
         }
-        // TODO 对这个方法进行调整-基础访问数据
-        LinkAccessStatsDO pvUvUidStatsByGroup = linkAccessLogsMapper.findPvUvUidStatsByGroup(requestParam);
+        long totalPv = listStatsByGroup.stream()
+                .mapToLong(LinkAccessStatsDO::getPv) // 提取每个DO的pv值
+                .sum();                               // 求和
+        long totalUv = listStatsByGroup.stream()
+                .mapToLong(LinkAccessStatsDO::getUv) // 提取每个DO的uv值
+                .sum();                               // 求和
+        long totalUip = listStatsByGroup.stream()
+                .mapToLong(LinkAccessStatsDO::getUip)// 提取每个DO的uip值
+                .sum();                               // 求和
         // 基础访问详情
         List<ShortLinkStatsAccessDailyRespDTO> daily = new ArrayList<>();
         List<String> rangeDates = DateUtil.rangeToList(DateUtil.parse(requestParam.getStartDate()), DateUtil.parse(requestParam.getEndDate()), DateField.DAY_OF_MONTH).stream()
@@ -373,6 +380,8 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                     .build();
             osStats.add(osRespDTO);
         });
+        // TODO 缺少访客访问类型详情 uvTypeStats
+
         // 访问设备类型详情
         List<ShortLinkStatsDeviceRespDTO> deviceStats = new ArrayList<>();
         List<LinkDeviceStatsDO> listDeviceStatsByGroup = linkDeviceStatsMapper.listDeviceStatsByGroup(requestParam);
@@ -406,9 +415,9 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
             networkStats.add(networkRespDTO);
         });
         return ShortLinkStatsRespDTO.builder()
-                .pv(pvUvUidStatsByGroup.getPv())
-                .uv(pvUvUidStatsByGroup.getUv())
-                .uip(pvUvUidStatsByGroup.getUip())
+                .pv(totalPv)
+                .uv(totalUv)
+                .uip(totalUip)
                 .daily(daily)
                 .localeCnStats(localeCnStats)
                 .hourStats(hourStats)
