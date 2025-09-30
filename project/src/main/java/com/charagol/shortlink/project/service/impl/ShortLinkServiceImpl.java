@@ -230,6 +230,28 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             baseMapper.insert(shortLinkDO);
         }
         // 传递的分组与原来的分组不匹配，则分组发生更改，需要先删除
+
+        // 只要对短链接进行了任何可能影响跳转的修改，都需要清除redis主缓存
+        stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+        // 同时删除空值缓存，防止因旧的“无效”标记导致新生效的链接暂时无法访问。
+        stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+
+
+        /**
+         * 马哥的代码：尝试在更精准的条件下删除缓存，即只有当有效期发生变化时才去操作缓存。
+        if (!Objects.equals(hasShortLinkDO.getValidDateType(), requestParam.getValidDateType())
+                || !Objects.equals(hasShortLinkDO.getValidDate(), requestParam.getValidDate())) {
+            // 只有有效期类型或有效期日期发生变化时才执行
+            stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+
+            // 针对特定情况：如果旧链接已过期，但现在被修改为永久或新的有效日期，则删除空值缓存
+            if (hasShortLinkDO.getValidDate() != null && hasShortLinkDO.getValidDate().before(new Date())) {
+                if (Objects.equals(requestParam.getValidDateType(), ValiDateTypeEnum.PERMANENT.getType()) || requestParam.getValidDate().after(new Date())) {
+                    stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+                }
+            }
+        }
+         */
     }
 
 

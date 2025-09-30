@@ -93,6 +93,8 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
         baseMapper.update(shortLinkDO, updateWrapper);
         // 清除redis之前占位的空白键，但不做预热处理。
         stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+        // 同时清除主缓存，确保恢复后的第一次访问能够从数据库获取最新有效状态。
+        stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
     }
 
     @Override
@@ -106,5 +108,9 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
         // 注意这里是直接将短链接从数据库中删除
         // TODO 如果做逻辑删除，会占用数据库。考虑使用逻辑删除与集中表。
         baseMapper.delete(updateWrapper);
+
+        // 物理删除数据库记录后，为防止任何异常情况，彻底清除相关缓存
+        stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+        stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
     }
 }
