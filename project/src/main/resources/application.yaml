@@ -29,6 +29,8 @@ mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
 
 short-link:
+  domain:
+    default: nurl.ink:8081
   stats:
     locale:
       amap-key: 544b23ecca51959fbabb78ac5b41821c

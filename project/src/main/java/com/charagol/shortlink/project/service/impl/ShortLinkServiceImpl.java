@@ -80,6 +80,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     @Value("${short-link.stats.locale.amap-key}")  // 使用springbootframword.bean的方式注入
     private String statsLocaleAmapKey;
 
+    @Value("${short-link.domain.default}")
+    private String createShortLinkDefaultDomain;
+
     /**
      * 创建短链接
      * @param requestParam 创建短链接请求参数
@@ -90,14 +93,14 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         // 1. 生成短链后缀
         String shortLinkSuffix = generateSuffix(requestParam);
         // 2. 拼接完整短链 URL
-        String fullShortUrl = StrBuilder.create(requestParam.getDomain())
+        String fullShortUrl = StrBuilder.create(createShortLinkDefaultDomain)
                 .append("/")
                 .append(shortLinkSuffix)
                 .toString();
         // 3. 构建要持久化的实体
         ShortLinkDO shortLinkDO = ShortLinkDO.builder()
                 .domain(requestParam.getDomain())
-                .originUrl(requestParam.getOriginUrl())
+                .originUrl(createShortLinkDefaultDomain)
                 .gid(requestParam.getGid())
                 .createdType(requestParam.getCreatedType())
                 .validDateType(requestParam.getValidDateType())
@@ -245,7 +248,13 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     @Override
     public void restoreUrl(String shortUri, HttpServletRequest request, HttpServletResponse response) {
         String serverName = request.getServerName();
-        String fullShortUrl = serverName + "/" + shortUri;
+        // NOTE 在yaml中设置指定端口。如果端口指定了就拼接，没指定（默认80）就不管
+        String serverPort = Optional.of(request.getServerPort())
+                .filter(each -> !Objects.equals(each, 80))
+                .map(String::valueOf)
+                .map(each -> ":" + each)
+                .orElse("");
+        String fullShortUrl = serverName + serverPort + "/" + shortUri;
 
         // 第一次检查：尝试从 Redis 中获取原始链接
         String originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
