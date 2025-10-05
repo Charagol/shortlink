@@ -103,13 +103,17 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
                 .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
                 .eq(ShortLinkDO::getGid, requestParam.getGid())
                 .eq(ShortLinkDO::getEnableStatus, 1)
+                .eq(ShortLinkDO::getDelTime, 0L)
                 .eq(ShortLinkDO::getDelFlag, 0);
         log.info("8081:从回收站中移除短链接：{}", requestParam.getFullShortUrl());
-        // 注意这里是直接将短链接从数据库中删除
-        // TODO 如果做逻辑删除，会占用数据库。考虑使用逻辑删除与集中表。
-        baseMapper.delete(updateWrapper);
+        // 逻辑删除
+        ShortLinkDO delShortLinkDO = ShortLinkDO.builder()
+                .delTime(System.currentTimeMillis())
+                .build();
+        delShortLinkDO.setDelFlag(1);
+        baseMapper.update(delShortLinkDO, updateWrapper);
 
-        // 物理删除数据库记录后，为防止任何异常情况，彻底清除相关缓存
+        // 删除数据库记录后，为防止任何异常情况，彻底清除相关缓存
         stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
         stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
     }
