@@ -189,6 +189,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void updateShortLink(ShortLinkUpdateReqDTO requestParam) {
+        // 1. 根据请求参数查询现有短链接信息
         // 设定有效期的时候，如果是空的，需要额外判断
         LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
                 .eq(ShortLinkDO::getGid, requestParam.getGid())
@@ -196,9 +197,13 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .eq(ShortLinkDO::getDelFlag, 0)
                 .eq(ShortLinkDO::getEnableStatus, 0);
         ShortLinkDO hasShortLinkDO = baseMapper.selectOne(queryWrapper);
+
+        // 2. 如果不存在，抛出异常
         if (hasShortLinkDO == null) {
             throw new ServiceException("短链接不存在");
         }
+
+        // 3. 构建待更新的短链接实体。部分使用原来参数，部分使用新参数
         ShortLinkDO shortLinkDO = ShortLinkDO.builder()
                 .domain(hasShortLinkDO.getDomain())
                 .shortUri(hasShortLinkDO.getShortUri())
@@ -211,7 +216,10 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .validDateType(requestParam.getValidDateType())
                 .validDate(requestParam.getValidDate())
                 .build();
+
+        // 4. 判断分组ID（gid）是否发生变化
         if (Objects.equals(hasShortLinkDO.getGid(), requestParam.getGid())){
+            // 4.1. 分组ID未变化：直接更新现有短链接记录
             LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
                     .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
                     .eq(ShortLinkDO::getGid, requestParam.getGid())
@@ -220,17 +228,20 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .set(Objects.equals(requestParam.getValidDateType(), ValiDateTypeEnum.PERMANENT.getType()), ShortLinkDO::getValidDate, null);
             baseMapper.update(shortLinkDO,updateWrapper);
         }else{
+            // 4.2. 分组ID已变化：这被视为“移动”操作，先删除旧分组下的记录，再在新分组下插入新记录
+            // 4.2.1. 删除旧分组下的记录
             LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
                     .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
                     .eq(ShortLinkDO::getGid, hasShortLinkDO.getGid())    // 这里如果不一致，需要从hasShortLinkDO中获取gid
                     .eq(ShortLinkDO::getDelFlag, 0)
                     .eq(ShortLinkDO::getEnableStatus, 0);
             baseMapper.delete(updateWrapper);
+            // 4.2.2. 在新分组下插入新记录
             shortLinkDO.setGid(requestParam.getGid());
             baseMapper.insert(shortLinkDO);
         }
-        // 传递的分组与原来的分组不匹配，则分组发生更改，需要先删除
 
+        // 5. 缓存失效：清除与该短链接相关的Redis缓存
         // 只要对短链接进行了任何可能影响跳转的修改，都需要清除redis主缓存
         stringRedisTemplate.delete(String.format(GOTO_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
         // 同时删除空值缓存，防止因旧的“无效”标记导致新生效的链接暂时无法访问。
