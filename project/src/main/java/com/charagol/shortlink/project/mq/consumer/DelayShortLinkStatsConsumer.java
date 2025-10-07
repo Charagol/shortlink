@@ -27,6 +27,7 @@ public class DelayShortLinkStatsConsumer implements InitializingBean {
     private final ShortLinkService shortLinkService;
 
     public void onMessage() {
+        // 1. 创建一个单线程的执行器，用于异步消费消息
         Executors.newSingleThreadExecutor(
                         runnable -> {
                             Thread thread = new Thread(runnable);
@@ -35,22 +36,33 @@ public class DelayShortLinkStatsConsumer implements InitializingBean {
                             return thread;
                         })
                 .execute(() -> {
+                    // 2. 获取到期消息接收队列blockingDeque。由于标识唯一，与生产者中到期队列相同。 而后获取到期队列的延迟队列实例
                     RBlockingDeque<ShortLinkStatsRecordDTO> blockingDeque = redissonClient.getBlockingDeque(DELAY_QUEUE_STATS_KEY);
                     RDelayedQueue<ShortLinkStatsRecordDTO> delayedQueue = redissonClient.getDelayedQueue(blockingDeque);
+
+                    // 3. 从延迟队列中取出消息，并进行处理（无限循环）。
                     for (; ; ) {
                         try {
+                            // 尝试从延迟队列中取出一条消息。这里的poll()是从底层的blockingDeque中取已经到期的消息
                             ShortLinkStatsRecordDTO statsRecord = delayedQueue.poll();
                             if (statsRecord != null) {
+                                // 3.1 有消息：调用短链接服务进行统计处理
                                 shortLinkService.shortLinkStats(null, null, statsRecord);
                                 continue;
                             }
+                            // 3.2 没消息：当前线程暂停500毫秒，避免空轮询导致CPU过高
                             LockSupport.parkUntil(500);
                         } catch (Throwable ignored) {
+                            // TODO 实际生产环境中，这里应记录日志并考虑消息重试或放入死信队列
                         }
                     }
                 });
     }
 
+    /**
+     * Spring容器初始化完成后自动调用此方法
+     * 这里调用onMessage()方法，启动消费者线程
+     */
     @Override
     public void afterPropertiesSet() throws Exception {
         onMessage();

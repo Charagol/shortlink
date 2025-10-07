@@ -521,6 +521,15 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
     }
 
+    /* NOTE shortLinkStats 拆分笔记
+     *  1. 原来的shortLinkStats负责[从HTTP请求中提取原始访问数据，处理UV\PV\UIP等、构建各种统计实体、持久化写入、锁机制] 等多个部分，职责过重，过耦合
+     *  2. 简而言之，又得“挖”，又得“算”，又得“存”
+     *  3. 引入 statsRecordDTO —— 临时的数据传输对象，将所有需要统计的信息打包起来。
+     *  4. 提取 buildLinkStatsRecordAndSetUser 方法，将与 Http 交互的逻辑进行打包。负责从请求中解析出所有必要的统计信息，并封装打包到 statsRecordDTO
+     *  5. 现在步骤变为，先调用 buildLinkStatsRecordAndSetUser 方法，获取 statsRecordDTO 然后返给 shortLinkStats 方法
+     *  6. shortLinkStats 用于将 statsRecord 中的统计信息持久化到数据库，需获取【读锁】，若成功，便写入
+     */
+
     /**
      * 统计短链接访问数据，每次访问-跳转都会记录这次的各种信息
      * 从信息中构建实体，最后写入对应表中。配合restoreUrl实现。
@@ -601,6 +610,14 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 .build();
     }
 
+    /* NOTE
+    *   1. 用户请求 -> Controller -> Service.restoreUrl ->  Service.build...（统计数据） -> Service.shortLinkStats(尝试拿锁)
+    *   2. 如果此时写锁被 Service.update 持有。if (!rLock.tryLock()) 会判中，由 Producer.send 记录，而后直接 return (持久化本来也不需要返回)
+    *   3. 此时，待持久化的所有数据，都以参数传给了 Producer.send 方法。而用户正常重定向
+    *   4. 本次统计参数 statsRecord 以被放入延迟队列。已序列化并存储在 Redis 的 Sorted Set 中，score 是 5 秒后的时间戳（此时尚未被写入）
+    *   5. 消费队列获取相同延迟队列与到期队列，扫描到已经到期的数据，就进行持久化。
+    */
+
     @Override
     public void shortLinkStats(String fullShortUrl, String gid, ShortLinkStatsRecordDTO statsRecord) {
         fullShortUrl = Optional.ofNullable(fullShortUrl).orElse(statsRecord.getFullShortUrl());
@@ -614,13 +631,15 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         }
         Date currentDate = new Date();    // 给获取当前时分秒用的
         try {
-            // 前端没传gid就自己去拿
+            // 一、获取Gid。前端没传gid就自己去拿
             if (StrUtil.isBlank(gid)){
                 LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
                         .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
                 ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
                 gid = shortLinkGotoDO.getGid();
             }
+
+            // 二、基础访问监控数据
             // 获取当前时间信息并写入数据库
             int hour = DateUtil.hour(currentDate, true);
             Week week = DateUtil.dayOfWeekEnum(currentDate);

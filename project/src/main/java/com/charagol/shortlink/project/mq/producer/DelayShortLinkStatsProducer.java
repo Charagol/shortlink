@@ -27,8 +27,15 @@ public class DelayShortLinkStatsProducer {
      * @param statsRecord 短链接统计实体参数
      */
     public void send(ShortLinkStatsRecordDTO statsRecord) {
+        // 1. 获取一个Redisson的阻塞双端队列RBlockingDeque，拥有唯一标识
+        // blockingDeque 为延迟队列内部实际“到期消息”的接收队列
         RBlockingDeque<ShortLinkStatsRecordDTO> blockingDeque = redissonClient.getBlockingDeque(DELAY_QUEUE_STATS_KEY);
+
+        // 2. 基于到期接受队列，获取对应的延迟队列实例——消息到期后，自动转入到期队列
         RDelayedQueue<ShortLinkStatsRecordDTO> delayedQueue = redissonClient.getDelayedQueue(blockingDeque);
+
+        // 3. 将统计记录statsRecord放入延迟队列，并设置5秒的延迟时间。5秒后自动转入到期队列
+        // 延迟队列数据结构：Sorted Set{Value,Score}。将statsRecord序列化放入值，超时时间戳放入Score，并存在周期性守护线程扫描到期消息
         delayedQueue.offer(statsRecord, 5, TimeUnit.SECONDS);
     }
 }
