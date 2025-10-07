@@ -776,7 +776,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 转 Base62
             shortUri = HashUtil.hashToBase62(originUrl);
             // 判断布隆过滤器中是否已存在该后缀
-            String candidate = requestParam.getDomain() + "/" + shortUri;
+            String candidate = createShortLinkDefaultDomain + "/" + shortUri;
             if (!shortUriCreateCachePenetrationBloomFilter.contains(candidate)) {
                 break;
             }
