@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.charagol.shortlink.admin.common.convention.exception.ClientException;
+import com.charagol.shortlink.admin.common.convention.exception.ServiceException;
 import com.charagol.shortlink.admin.common.enums.UserErrorCodeEnum;
 import com.charagol.shortlink.admin.dao.entity.UserDO;
 import com.charagol.shortlink.admin.dao.mapper.UserMapper;
@@ -58,7 +59,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
 
         // 3. 报错判断返回异常
         if (userDO == null) {
-            throw new ClientException(UserErrorCodeEnum.USER_NULL);
+            throw new ServiceException(UserErrorCodeEnum.USER_NULL);
         }
 
         // 4. 构建返回结果对象
