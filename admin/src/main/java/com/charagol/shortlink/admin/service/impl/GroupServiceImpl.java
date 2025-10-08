@@ -75,7 +75,7 @@ public class GroupServiceImpl extends ServiceImpl<GroupMapper,GroupDO> implement
             String gid;
             do {
                 gid = RandomGenerator.generateRandom();
-            } while (!hasGid(username, gid));
+            } while (!isGidAvailable(username, gid));    // 可用会返回true，应取反，不可用才继续。
             GroupDO groupDO = GroupDO.builder()
                     .gid(gid)
                     .sortOrder(0)
@@ -197,16 +197,19 @@ public class GroupServiceImpl extends ServiceImpl<GroupMapper,GroupDO> implement
         });
     }
 
-    // NEW! 2025-09-13 21:32  将原有的 hasGid 方法修改为 hasGid(String username, String gid)
-    // NEW! Wrappers条件改为eq(GroupDO::getUsername,Optional.ofNullable(username).orElse(UserContext.getUsername()));
-    private boolean hasGid(String username, String gid) {
+    /**
+     * 判断GId是否可用
+     * @param username 用户名
+     * @param gid 短链接分组ID
+     * @return 如果为null，说明可用，应该返回 true
+     */
+    private boolean isGidAvailable(String username, String gid) {
             // 1. 构建查询条件
             LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
                     .eq(GroupDO::getGid, gid)
-                    // TODO 设置用户名
-                    .eq(GroupDO::getUsername,Optional.ofNullable(username).orElse(UserContext.getUsername()));
-            GroupDO hasGroupFlag = baseMapper.selectOne(queryWrapper);
-            // 2. 判断是否存在，如果存在，返回 true，否则返回 false
-            return hasGroupFlag != null;
+                    .eq(GroupDO::getUsername,Optional.ofNullable(username).orElse(UserContext.getUsername()));  // 查询必须要有username作为分片键，所以保守起见添加备选
+            GroupDO idAvailableFlag = baseMapper.selectOne(queryWrapper);
+            // 2. 为空就说明可用 -> 返回true
+            return idAvailableFlag == null;
     }
 }
