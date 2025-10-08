@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/shortlink/v1")
+@RequestMapping("/api/short-link/admin/v1")
 public class UserController {
 
     private final UserService userService;
@@ -62,7 +62,7 @@ public class UserController {
      * @param username
      * @return
      */
-    @GetMapping("/has-username")
+    @GetMapping("/user/has-username")
     public Result<Boolean> hasUsername(@RequestParam("username") String username){
         Boolean result = userService.hasUsername(username);
         log.info("hasUsername: {}, result: {}", username, result);
