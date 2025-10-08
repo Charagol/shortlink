@@ -160,12 +160,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
                     .orElseThrow(() -> new ClientException("用户登录错误"));
             return new UserLoginRespDTO(token);
         }
-
-
-        // 3. 生成token逻辑：
-        // 3.1 生成UUID作为token
-        // 3.2 将用户信息与UUID绑定，存入redis中，设置过期时间
-        // 3.3 返回UserLoginRespDTO对象，包含token
+        // 4. 生成token，写入redis，而后返回
         /**
          * Hash
          * Key: login_用户名
@@ -174,15 +169,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
          *  Value：JSON字符串（用户信息）
          */
         String uuid = UUID.randomUUID().toString();
-        // TODO 设置过期时间，默认30L,TimeUnit.MINUTES
-        // 需要 import java.util.concurrent.TimeUnit;  JDK21不支持
-
-//        stringRedisTemplate.opsForValue().set(uuid, JSON.toJSONString(userDO));
-        stringRedisTemplate.opsForHash().put("login_" + requestParam.getUsername(), uuid, JSON.toJSONString(userDO));
-        stringRedisTemplate.expire("login_" + requestParam.getUsername(), 30, TimeUnit.MINUTES);
-
-//        Map<String, String> userInfoMap = new HashMap<>();
-//        userInfoMap.put("token", JSON.toJSONString(userDO));
+        stringRedisTemplate.opsForHash().put("login_" + requestParam.getUsername(), uuid, JSON.toJSONString(userDO));  // 写入redis
+        stringRedisTemplate.expire("login_" + requestParam.getUsername(), 1440, TimeUnit.MINUTES);       // 设置过期时间: 1天
 
         return new UserLoginRespDTO(uuid);
     }
