@@ -6,6 +6,9 @@ import java.util.Optional;
 
 public final class UserContext {
 
+    /**
+     * <a href="https://github.com/alibaba/transmittable-thread-local" />
+     */
     private static final ThreadLocal<UserInfoDTO> USER_THREAD_LOCAL = new TransmittableThreadLocal<>();
 
     /**
