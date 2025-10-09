@@ -1,6 +1,7 @@
 package com.charagol.shortlink.project.mq.producer;
 
 
+import cn.hutool.core.lang.UUID;
 import com.charagol.shortlink.project.dto.biz.ShortLinkStatsRecordDTO;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBlockingDeque;
@@ -27,6 +28,14 @@ public class DelayShortLinkStatsProducer {
      * @param statsRecord 短链接统计实体参数
      */
     public void send(ShortLinkStatsRecordDTO statsRecord) {
+        /** NOTE
+         *   1. 在数据传输实体类中添加一个Key字段
+         *   2. 生产者中为key赋值
+         *   3. 消费者中根据key判断消息是否处理过
+         *   4. 整体实现对原有的数据方法的 0 侵入
+         */
+        statsRecord.setKeys(UUID.fastUUID().toString());
+
         // 1. 获取一个Redisson的阻塞双端队列RBlockingDeque，拥有唯一标识
         // blockingDeque 为延迟队列内部实际“到期消息”的接收队列
         RBlockingDeque<ShortLinkStatsRecordDTO> blockingDeque = redissonClient.getBlockingDeque(DELAY_QUEUE_STATS_KEY);

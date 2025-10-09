@@ -1,9 +1,12 @@
 package com.charagol.shortlink.project.mq.consumer;
 
 
+import com.charagol.shortlink.project.common.convention.exception.ServiceException;
 import com.charagol.shortlink.project.dto.biz.ShortLinkStatsRecordDTO;
+import com.charagol.shortlink.project.mq.idempotent.MessageQueueIdempotentHandler;
 import com.charagol.shortlink.project.service.ShortLinkService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBlockingDeque;
 import org.redisson.api.RDelayedQueue;
 import org.redisson.api.RedissonClient;
@@ -19,12 +22,14 @@ import static com.charagol.shortlink.project.common.constant.RedisKeyConstant.DE
  * 延迟记录短链接统计组件
  * 公众号：马丁玩编程，回复：加群，添加马哥微信（备注：link）获取项目资料
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DelayShortLinkStatsConsumer implements InitializingBean {
 
     private final RedissonClient redissonClient;
     private final ShortLinkService shortLinkService;
+    private final MessageQueueIdempotentHandler messageQueueIdempotentHandler;
 
     public void onMessage() {
         // 1. 创建一个单线程的执行器，用于异步消费消息
@@ -47,7 +52,20 @@ public class DelayShortLinkStatsConsumer implements InitializingBean {
                             ShortLinkStatsRecordDTO statsRecord = delayedQueue.poll();
                             if (statsRecord != null) {
                                 // 3.1 有消息：调用短链接服务进行统计处理
-                                shortLinkService.shortLinkStats(null, null, statsRecord);
+                                if (!messageQueueIdempotentHandler.isMessageProcessed(statsRecord.getKeys())) {
+                                    // 判断当前的这个消息流程是否执行完成
+                                    if (messageQueueIdempotentHandler.isAccomplish(statsRecord.getKeys())) {
+                                        return;
+                                    }
+                                    throw new ServiceException("消息未完成流程，需要消息队列重试");
+                                }
+                                try {
+                                    shortLinkService.shortLinkStats(null, null, statsRecord);
+                                } catch (Throwable ex) {
+                                    messageQueueIdempotentHandler.delMessageProcessed(statsRecord.getKeys());
+                                    log.error("延迟记录短链接监控消费异常", ex);
+                                }
+                                messageQueueIdempotentHandler.setAccomplish(statsRecord.getKeys());
                                 continue;
                             }
                             // 3.2 没消息：当前线程暂停500毫秒，避免空轮询导致CPU过高
