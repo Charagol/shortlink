@@ -128,16 +128,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 4.5 在新建短链接时，插入短链接跳转表
             shortLinkGotoMapper.insert(linkGotoDO);
         } catch (DuplicateKeyException ex) {
-            // 5. 遇到主键/唯一键冲突时再查一次，防止重复插入
-            LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
-                    .eq(ShortLinkDO::getFullShortUrl, fullShortUrl);
-            ShortLinkDO hasShortLinkDO = baseMapper.selectOne(queryWrapper);
-            if (hasShortLinkDO != null) {
-                log.warn("短链接：{} 重复入库", fullShortUrl);
-                throw new ServiceException("短链接生成重复");
-            }
-            // 如果查不到，则抛出原异常
-            throw ex;
+            // 5. 遇到主键/唯一键冲突时，不需要再查了。shortLinkSuffix方法中已经拦截。直接报错即可
+            throw new ServiceException(String.format("短链接：%s 生成重复", fullShortUrl));
         }
         // 6. 缓存预热：将完整链接加入布隆过滤器，避免频繁重复生成（不用后缀：一个后缀可能在多个域名中使用）
         stringRedisTemplate.opsForValue().set(
@@ -639,8 +631,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             if (customGenerateCount > 10) {
                 throw new ServiceException("短链接频繁生成，请稍后再试");
             }
-            // 将原始 URL 加上时间戳，保证每次 hash 值不同
-            String originUrl = requestParam.getOriginUrl() + System.currentTimeMillis();
+            // 将原始 URL 加上UUID，保证每次 hash 值不同（如果是当前时间戳，可能在当前毫秒发生重复）
+            String originUrl = requestParam.getOriginUrl() + UUID.randomUUID();
             // 转 Base62
             shortUri = HashUtil.hashToBase62(originUrl);
             // 判断布隆过滤器中是否已存在该后缀
