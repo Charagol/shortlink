@@ -7,21 +7,15 @@ spring:
     driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
     # ShardingSphere 配置文件路径
     url: jdbc:shardingsphere:classpath:shardingsphere-config-${database.env:dev}.yaml
-
   data:
     redis:
       host: 127.0.0.1
       port: 6379
       password: 123456
-      channel-topic:
-        short-link-stats: 'short_link:stats-stream'
-        short-link-stats-group: 'short_link:stats-stream:only-group'
-
-  spring:
-    mvc:
-      view:
-        prefix: /templates/
-        suffix: .html
+  mvc:
+    view:
+      prefix: /templates/
+      suffix: .html
 
 
 mybatis-plus:
