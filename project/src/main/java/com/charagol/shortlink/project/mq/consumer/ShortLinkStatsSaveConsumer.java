@@ -9,6 +9,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.charagol.shortlink.project.common.convention.exception.ServiceException;
 import com.charagol.shortlink.project.dao.entity.*;
 import com.charagol.shortlink.project.dao.mapper.*;
 import com.charagol.shortlink.project.dto.biz.ShortLinkStatsRecordDTO;
@@ -66,7 +67,11 @@ public class ShortLinkStatsSaveConsumer implements StreamListener<String, MapRec
         String stream = message.getStream();
         RecordId id = message.getId();
         if (!messageQueueIdempotentHandler.isMessageProcessed(id.toString())) {
-            return;
+            // 判断当前的这个消息流程是否执行完成
+            if (messageQueueIdempotentHandler.isAccomplish(id.toString())) {
+                return;
+            }
+            throw new ServiceException("消息未完成流程，需要消息队列重试");
         }
         try {
             Map<String, String> producerMap = message.getValue();
@@ -82,6 +87,7 @@ public class ShortLinkStatsSaveConsumer implements StreamListener<String, MapRec
             messageQueueIdempotentHandler.delMessageProcessed(id.toString());
             log.error("记录短链接监控消费异常", ex);
         }
+        messageQueueIdempotentHandler.setAccomplish(id.toString());
     }
 
     /**
