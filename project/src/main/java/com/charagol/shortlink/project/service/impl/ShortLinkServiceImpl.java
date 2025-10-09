@@ -556,7 +556,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             }
             response.addCookie(uvCookie);
             uvFirstFlag.set(Boolean.TRUE);
-            String uvRedisKey = "short-link:stats:uv:" + fullShortUrl + ":" + today;
+            String uvRedisKey = SHORT_LINK_STATS_UV_KEY  + fullShortUrl + ":" + today;
             stringRedisTemplate.opsForSet().add(uvRedisKey, uv.get());
             stringRedisTemplate.expire(uvRedisKey, 26, TimeUnit.HOURS); // 26小时过期，确保次日凌晨失效
         };
@@ -570,7 +570,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .ifPresentOrElse(each -> {
                         uv.set(each);
                         // 2.1.1 如果有key为uv，取出值:UUID, 判断是否存在于Redis中
-                        String uvRedisKey = "short-link:stats:uv:" + fullShortUrl + ":" + today;
+                        String uvRedisKey = SHORT_LINK_STATS_UV_KEY + fullShortUrl + ":" + today;
                         Long uvAdded = stringRedisTemplate.opsForSet().add(uvRedisKey, each);
                         uvFirstFlag.set(uvAdded != null && uvAdded > 0L);
                         if (uvFirstFlag.get()) {                               // 如果是新UV才需要刷新过期时间
@@ -589,7 +589,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         String device = LinkUtil.getDevice(request);
         String network = LinkUtil.getNetwork(request);
         // 修改 UIP Redis Key，添加 :today 后缀并设置过期时间
-        String uipRedisKey  = "short-link:stats:uip:" + fullShortUrl + ":" + today;
+        String uipRedisKey  = SHORT_LINK_STATS_UIP_KEY  + fullShortUrl + ":" + today;
         Long uipAdded = stringRedisTemplate.opsForSet().add(uipRedisKey, remoteAddr);
         boolean uipFirstFlag = uipAdded != null && uipAdded > 0L;
         if (uipFirstFlag) { // 如果是新UIP才需要刷新过期时间
