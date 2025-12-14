@@ -53,9 +53,7 @@ public class ShortLinkStatsController {
      */
     @GetMapping("/api/short-link/admin/v1/stats/group")
     public Result<ShortLinkStatsRespDTO> groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam) {
-        return shortLinkActualRemoteService.groupShortLinkStats(requestParam.getGid(),
-                requestParam.getStartDate(),
-                requestParam.getEndDate());
+        return shortLinkActualRemoteService.groupShortLinkStats(requestParam);
     }
 
     /**
@@ -64,9 +62,7 @@ public class ShortLinkStatsController {
     @GetMapping("/api/short-link/admin/v1/stats/access-record/group")
     public Result<Page<ShortLinkStatsAccessRecordRespDTO>> shortLinkGroupStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam) {
         log.info("访问分组短链接指定时间内访问记录监控数据入参:{}", requestParam);
-        return shortLinkActualRemoteService.shortLinkGroupStatsAccessRecord(requestParam.getGid(),
-                requestParam.getStartDate(),
-                requestParam.getEndDate());
+        return shortLinkActualRemoteService.shortLinkGroupStatsAccessRecord(requestParam);
     }
 
 }

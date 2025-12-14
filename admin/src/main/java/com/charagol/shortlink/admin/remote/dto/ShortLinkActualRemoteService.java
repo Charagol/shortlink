@@ -5,11 +5,10 @@ import com.charagol.shortlink.admin.common.convention.result.Result;
 import com.charagol.shortlink.admin.dto.req.RecycleBinRecoverReqDTO;
 import com.charagol.shortlink.admin.dto.req.RecycleBinRemoveReqDTO;
 import com.charagol.shortlink.admin.dto.req.RecycleBinSaveReqDTO;
-import com.charagol.shortlink.admin.remote.dto.req.ShortLinkBatchCreateReqDTO;
-import com.charagol.shortlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
-import com.charagol.shortlink.admin.remote.dto.req.ShortLinkUpdateReqDTO;
+import com.charagol.shortlink.admin.remote.dto.req.*;
 import com.charagol.shortlink.admin.remote.dto.resp.*;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.cloud.openfeign.SpringQueryMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -156,29 +155,28 @@ public interface ShortLinkActualRemoteService {
     );
 
     /**
+     * NOTE
+     *  1. 远程调用里的GET请求如果有对象作为参数，可以不需要拆开
+     *  2. Spring Cloud OpenFeign 提供了等效的@SpringQueryMap注解，用于将 POJO 或 Map ，映射为 GET 方法的参数。
+     */
+
+    /**
      * 访问分组短链接指定时间内监控数据
-     *
-     * @param gid       分组标识
-     * @param startDate 开始日期
-     * @param endDate   结束日期
+     * @param requestParam 访分组问短链接监控请求参数
      * @return 分组短链接监控信息
      */
     @GetMapping("/api/short-link/v1/stats/group")
     Result<ShortLinkStatsRespDTO> groupShortLinkStats(
-            @RequestParam("gid") String gid,
-            @RequestParam("startDate") String startDate,
-            @RequestParam("endDate") String endDate
+            @SpringQueryMap ShortLinkGroupStatsReqDTO requestParam
     );
 
     /**
      * 访问分组短链接指定时间内监控访问记录数据
-     *
+     * @param requestParam 访问分组短链接监控访问记录请求参数
      * @return 分组短链接监控访问记录信息
      */
     @GetMapping("/api/short-link/v1/stats/access-record/group")
     Result<Page<ShortLinkStatsAccessRecordRespDTO>> shortLinkGroupStatsAccessRecord(
-            @RequestParam("gid") String gid,
-            @RequestParam("startDate") String startDate,
-            @RequestParam("endDate") String endDate
+            @SpringQueryMap ShortLinkGroupStatsAccessRecordReqDTO requestParam
     );
 }
