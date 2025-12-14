@@ -14,7 +14,7 @@ import com.charagol.shortlink.admin.dao.mapper.GroupMapper;
 import com.charagol.shortlink.admin.dto.req.ShortLinkGroupSortReqDTO;
 import com.charagol.shortlink.admin.dto.req.ShortLinkGroupUpdateReqDTO;
 import com.charagol.shortlink.admin.dto.resp.ShortLinkGroupRespDTO;
-import com.charagol.shortlink.admin.remote.dto.ShortLinkRemoteService;
+import com.charagol.shortlink.admin.remote.dto.ShortLinkActualRemoteService;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import com.charagol.shortlink.admin.service.GroupService;
 import com.charagol.shortlink.admin.toolkit.RandomGenerator;
@@ -39,17 +39,11 @@ import static com.charagol.shortlink.admin.common.constant.RedisCacheConstant.LO
 @RequiredArgsConstructor
 public class GroupServiceImpl extends ServiceImpl<GroupMapper,GroupDO> implements GroupService {
 
+    private final ShortLinkActualRemoteService shortLinkActualRemoteService;
     private final RedissonClient redissonClient;
 
     @Value("${short-link.group.max-num}")
     private Integer groupMaxNum;
-
-    /**
-     * 后续重构为 SpringCloud Feign 调用
-     */
-    ShortLinkRemoteService shortLinkRemoteService = new ShortLinkRemoteService() {
-    };
-
 
     /**
      * 新增短链接分组
@@ -126,7 +120,7 @@ public class GroupServiceImpl extends ServiceImpl<GroupMapper,GroupDO> implement
         // groupDOList.stream().map(GroupDO::getGid).toList() 得到 ——> [ "gid_1", "gid_2" ]
         List<String> gidList = groupDOList.stream().map(GroupDO::getGid).toList();
 
-        Result<List<ShortLinkGroupCountQueryRespDTO>> listResult = shortLinkRemoteService
+        Result<List<ShortLinkGroupCountQueryRespDTO>> listResult = shortLinkActualRemoteService
                 .listGroupShortLinkCount(gidList);
 
         // 3. 合并结果
