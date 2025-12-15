@@ -50,10 +50,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.HttpURLConnection;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -649,58 +648,70 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     /**
      * 获取网站的favicon图标链接
      *
-     * @param url 网站的URL
+     * @param originalUrl 网站的URL
      * @return favicon图标的链接，如果不存在则返回null
      */
-    @SneakyThrows
-    private String getFavicon(String url) {
-        // 以给定的URL
-        URL targetUrl = new URL(url);
-        // 打开连接
-        HttpURLConnection connection = (HttpURLConnection) targetUrl.openConnection();
-        // 禁止自动重定向
-        connection.setInstanceFollowRedirects(false);
-        // 设置请求方式为GET
-        connection.setRequestMethod("GET");
-        // 连接
-        connection.connect();
+    @SneakyThrows // 使用 Lombok 的 @SneakyThrows 简化异常处理
+    private String getFavicon(String originalUrl) {
+        // 1. 确保传入的URL是合法的、带有协议的绝对URL
+        // 这是最关键的一步，处理协议相对URL和缺少协议的URL
+        String processedUrl = ensureAbsoluteUrl(originalUrl);
 
-        // 获取响应码
-        int responseCode = connection.getResponseCode();
-        // 如果为重定向
-        if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP) {
-            // 获得重定向的URL
-            String redirectUrl = connection.getHeaderField("Location");
-            // 以重定向URL为主
-            if (redirectUrl != null) {
-                // 重新创建URL对象
-                URL newUrl = new URL(redirectUrl);
-                // 打开新的连接
-                connection = (HttpURLConnection) newUrl.openConnection();
-                // 设置请求方式为GET
-                connection.setRequestMethod("GET");
-                // 连接
-                connection.connect();
-                // 获取新的响应码
-                responseCode = connection.getResponseCode();
-            }
+        // 如果处理后的URL仍然无效（例如为空），则直接返回null
+        if (processedUrl == null || processedUrl.trim().isEmpty()) {
+            return null;
         }
 
-        // 如果响应码为200 (HTTP_OK)
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            // 使用Jsoup库从指定URL获取文档对象
-            Document document = Jsoup.connect(url).get();
+        try {
+            // Jsoup 默认会跟随重定向，所以我们不需要手动处理 HttpURLConnection 的重定向逻辑
+            // Jsoup.connect(url) 会自动建立连接，并处理 HTTP 响应，包括重定向
+            Document document = Jsoup.connect(processedUrl)
+                    .timeout(5000) // 设置连接超时时间，防止长时间等待
+                    .get(); // 发起GET请求并获取文档
+
             // 查找第一个匹配的<link>标签，属性值包含"shortcut"或"icon"
             Element faviconLink = document.select("link[rel~=(?i)^((shortcut )?icon)]").first();
-            // 如果找到图标链接
+
+            // 如果找到图标链接，返回图标链接的绝对路径
             if (faviconLink != null) {
-                // 返回图标链接的绝对路径
                 return faviconLink.attr("abs:href");
             }
+        } catch (IOException e) {
+            // 捕获 Jsoup 在连接或解析过程中可能抛出的异常，例如 MalformedURLException, UnknownHostException, SocketTimeoutException 等
+            // 打印日志以便排查问题，但不对外抛出，返回null表示无法获取
+            System.err.println("Error fetching favicon for URL: " + processedUrl + ", Error: " + e.getMessage());
+            return null;
         }
 
         // 如果不存在favicon图标链接，则返回null
         return null;
+    }
+
+    /**
+     * 确保URL字符串是带有协议的绝对URL。
+     * 处理协议相对URL和缺少协议的URL。
+     *
+     * @param urlString 原始URL字符串
+     * @return 经过处理的绝对URL字符串，如果无法处理则返回null
+     */
+    private String ensureAbsoluteUrl(String urlString) {
+        if (urlString == null || urlString.trim().isEmpty()) {
+            return null;
+        }
+
+        // 已经包含协议，直接返回
+        if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
+            return urlString;
+        }
+
+        // 协议相对URL，例如 "//www.example.com"
+        if (urlString.startsWith("//")) {
+            // 默认使用 HTTPS 补全，因为更安全也更常见
+            return "https:" + urlString;
+        }
+
+        // 其他情况，可能是一个没有协议的域名或相对路径，默认添加 HTTPS
+        return "https://" + urlString;
     }
 
     private void verificationWhitelist(String originUrl) {
