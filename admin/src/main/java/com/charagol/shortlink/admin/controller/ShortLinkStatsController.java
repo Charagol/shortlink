@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 短链接监控控制层
  */
 @Slf4j
-@RestController
+@RestController(value = "shortLinkStatsControllerByAdmin")
 @RequiredArgsConstructor
 public class ShortLinkStatsController {
 
