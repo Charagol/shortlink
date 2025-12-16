@@ -19,7 +19,6 @@ import com.charagol.shortlink.project.service.ShortLinkStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -513,7 +512,11 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper = Wrappers.lambdaQuery(LinkAccessLogsDO.class)
                 .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
                 .eq(LinkAccessLogsDO::getDelFlag, 0)
-                .between(LinkAccessLogsDO::getCreateTime,requestParam.getStartDate(), LocalDate.parse(requestParam.getEndDate(),formatter).plusDays(1))   // 至结束日期0点（不包含）需+1
+                .between(LinkAccessLogsDO::getCreateTime,
+                        requestParam.getStartDate(),
+                        // 兼容前端传入参数，解决时间左闭右开区间问题
+                        DateUtil.parse(requestParam.getEndDate()).toLocalDateTime().toLocalDate().plusDays(1)
+                )
                 .orderByDesc(LinkAccessLogsDO::getCreateTime);
         IPage<LinkAccessLogsDO> linkAccessLogsDOIPage = linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
         IPage<ShortLinkStatsAccessRecordRespDTO> actualResult = linkAccessLogsDOIPage.convert(
