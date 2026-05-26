@@ -19,14 +19,14 @@ package com.charagol.shortlink.admin.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.charagol.shortlink.admin.common.biz.user.UserContext;
 import com.charagol.shortlink.admin.common.convention.exception.ServiceException;
 import com.charagol.shortlink.admin.common.convention.result.Result;
 import com.charagol.shortlink.admin.dao.entity.GroupDO;
 import com.charagol.shortlink.admin.dao.mapper.GroupMapper;
-import com.charagol.shortlink.admin.remote.dto.ShortLinkRemoteService;
+import com.charagol.shortlink.admin.remote.dto.ShortLinkActualRemoteService;
 import com.charagol.shortlink.admin.remote.dto.req.RecycleBinPageReqDTO;
 import com.charagol.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
 import com.charagol.shortlink.admin.service.RecycleBinService;
@@ -38,18 +38,12 @@ import java.util.List;
 /**
  * URL 回收站接口实现层
  */
-@Service
+@Service(value = "recycleBinServiceImplByAdmin")
 @RequiredArgsConstructor
 public class RecycleBinServiceImpl implements RecycleBinService {
 
     private final GroupMapper groupMapper;
-
-
-    /**
-     * TODO 后续重构为Spring Cloud Feign调用
-     */
-    ShortLinkRemoteService shortLinkRemoteService = new ShortLinkRemoteService() {
-    };
+    private final ShortLinkActualRemoteService shortLinkActualRemoteService;
 
     /**
      * 短链接回收站分页查询
@@ -58,7 +52,7 @@ public class RecycleBinServiceImpl implements RecycleBinService {
      * @return
      */
     @Override
-    public Result<IPage<ShortLinkPageRespDTO>> pageRecycleBinShortLink(RecycleBinPageReqDTO requestParam) {
+    public Result<Page<ShortLinkPageRespDTO>> pageRecycleBinShortLink(RecycleBinPageReqDTO requestParam) {
         // 1. 构造查询条件，查询当前用户的所有分组
         LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
                 .eq(GroupDO::getUsername, UserContext.getUsername())
@@ -68,7 +62,11 @@ public class RecycleBinServiceImpl implements RecycleBinService {
             throw new ServiceException("用户无分组信息");
         }
         // 2. 如果查到信息，则将其赋给请求参数，继续调用中台——跳转项目远程服务（此次中转只为补全gidList）
-        requestParam.setGidList(groupDOList.stream().map(GroupDO::getGid).toList());
-        return shortLinkRemoteService.pageRecycleBinShortLink(requestParam);
+        List<String> gidList = groupDOList.stream().map(GroupDO::getGid).toList();
+        return shortLinkActualRemoteService.pageRecycleBinShortLink(
+                gidList,
+                requestParam.getCurrent(),
+                requestParam.getSize()
+        );
     }
 }

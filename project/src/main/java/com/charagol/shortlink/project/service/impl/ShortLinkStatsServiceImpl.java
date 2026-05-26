@@ -19,7 +19,6 @@ import com.charagol.shortlink.project.service.ShortLinkStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -453,7 +452,14 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
                 .eq(LinkAccessLogsDO::getFullShortUrl, requestParam.getFullShortUrl())
                 .eq(LinkAccessLogsDO::getDelFlag, 0)
-                .between(LinkAccessLogsDO::getCreateTime,requestParam.getStartDate(), LocalDate.parse(requestParam.getEndDate(),formatter).plusDays(1))   // 至结束日期0点（不包含）需+1
+                .between(LinkAccessLogsDO::getCreateTime,
+                        requestParam.getStartDate(),
+                        // 1. requestParam.getEndDate() 是 "2025-12-15 23:59:59"（String）
+                        // 2. DateUtil.parse(requestParam.getEndDate())将其转换为Datetime对象：2025-12-15 23:59:59（cn.hutool.core.date.DateTime）
+                        // 3. 再转换为LocalDateTime：2025-12-15T23:59:59（java.time.LocalDateTime）
+                        // 4. 最后转换为2025-12-15（java.time.LocalDate），最后再+1，解决时间左闭右开区间问题
+                        DateUtil.parse(requestParam.getEndDate()).toLocalDateTime().toLocalDate().plusDays(1)
+                )
                 .orderByDesc(LinkAccessLogsDO::getCreateTime);
         IPage<LinkAccessLogsDO> linkAccessLogsDOIPage = linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
         // 2. 从LinkAccessLogsDO中获取信息，组装成ShortLinkStatsAccessRecordRespDTO（包含更多参数。目标回传实体）
@@ -506,7 +512,11 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper = Wrappers.lambdaQuery(LinkAccessLogsDO.class)
                 .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
                 .eq(LinkAccessLogsDO::getDelFlag, 0)
-                .between(LinkAccessLogsDO::getCreateTime,requestParam.getStartDate(), LocalDate.parse(requestParam.getEndDate(),formatter).plusDays(1))   // 至结束日期0点（不包含）需+1
+                .between(LinkAccessLogsDO::getCreateTime,
+                        requestParam.getStartDate(),
+                        // 兼容前端传入参数，解决时间左闭右开区间问题
+                        DateUtil.parse(requestParam.getEndDate()).toLocalDateTime().toLocalDate().plusDays(1)
+                )
                 .orderByDesc(LinkAccessLogsDO::getCreateTime);
         IPage<LinkAccessLogsDO> linkAccessLogsDOIPage = linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
         IPage<ShortLinkStatsAccessRecordRespDTO> actualResult = linkAccessLogsDOIPage.convert(

@@ -19,7 +19,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.Optional;
 
-@Component
+@Component("globalExceptionHandlerByAdmin")
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
